@@ -1,12 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
+from pydantic_settings import BaseSettings
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 import jwt
+import requests
 import os
 from .db_connection import get_engine
 from sqlalchemy import text
@@ -70,6 +74,53 @@ class RecuperarContrasenaRequest(BaseModel):
     contrasena: str
     recontrasena: str
 
+#Configuración para obtener codigo:
+# Cargar configuración desde variables de entorno
+class Settings(BaseSettings):
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_SERVER: str
+    MAIL_PORT: int
+    MAIL_STARTTLS: bool
+    MAIL_SSL_TLS: bool
+    USE_CREDENTIALS: bool
+
+    class Config:
+        env_file = ".env"  # Archivo donde están las credenciales
+
+settings = Settings()
+
+# Configuración de FastMail con SendGrid
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",
+    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",
+    USE_CREDENTIALS=os.getenv("USE_CREDENTIALS") == "True"
+)
+
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
+class ObtenerCodigoRequest(BaseSettings):
+    correo: str
+
+async def enviar_correo(destinatario, codigo):
+    message = MessageSchema(
+        subject="Código de Recuperación",
+        recipients=[destinatario],
+        body=f"Tu código de recuperación es: {codigo}. Este código expira en 5 minutos.",
+        subtype="plain"
+    )
+    try:
+        fm = FastMail(settings)
+        await fm.send_message(message)
+        logging.info("Correo enviado correctamente.")
+    except Exception as e:
+        logging.error(f"Error enviando correo: {e}")
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -377,11 +428,11 @@ def cambiar_contrasena(
             logger.info("Sesión de base de datos cerrada.")
 
 @app.post("/api/v1/auth/obtener-codigo")
-def obtener_codigo(
+async def obtener_codigo(
     request: ObtenerCodigoRequest,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    session: Optional[Session] = None  
+    session: Optional[Session] = None
 
     try:
         logger.info(f"Solicitud de obtención de código para el correo: {request.correo}")
@@ -390,13 +441,10 @@ def obtener_codigo(
         try:
             payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
             usuario_id_token = payload.get("id")
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token expirado.")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
-        except jwt.InvalidTokenError:
-            logger.warning("Token inválido.")
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             raise HTTPException(status_code=401, detail={"message": "Token inválido"})
 
+        # Iniciar la sesión de base de datos
         session = SessionLocal()
 
         # Verificar si el usuario existe en la base de datos
@@ -404,40 +452,62 @@ def obtener_codigo(
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
 
         if not usuario:
-            logger.warning(f"No se encontró un usuario activo con el correo: {request.correo}")
             raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         # Generar código aleatorio de 6 caracteres
         codigo = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
 
-        # Establecer tiempo de expiración (2 minutos desde ahora)
-        expiracion = datetime.utcnow() + timedelta(minutes=2)
+        # Hashear el código antes de guardarlo en la base de datos
+        codigo_hash = pwd_context.hash(codigo)
 
-        # Guardar el código en texto plano (sin hash)
+        # Establecer tiempo de expiración (5 minutos desde ahora)
+        expiracion = datetime.utcnow() + timedelta(minutes=5)
+
+        # Guardar el código hasheado en la base de datos
         update_query = text("""
             UPDATE USUARIOS 
-            SET codigo_recuperacion = :codigo, codigo_expiracion = :expiracion 
+            SET codigo_recuperacion = :codigo_hash, codigo_expiracion = :expiracion 
             WHERE correo = :correo
         """)
-        session.execute(update_query, {"codigo": codigo, "expiracion": expiracion, "correo": request.correo})
+        session.execute(update_query, {"codigo_hash": codigo_hash, "expiracion": expiracion, "correo": request.correo})
         session.commit()
 
-        logger.info(f"Código de recuperación generado para {request.correo}: {codigo}")
+        # Enviar el código por correo con SendGrid y FastMail
+        message = MessageSchema(
+            subject="Código de Recuperación",
+            recipients=[request.correo],
+            body=f"Tu código de recuperación es: {codigo}. Este código expira en 5 minutos.",
+            subtype="plain"
+        )
+
+        try:
+            fm = FastMail(conf)
+            await fm.send_message(message)
+            logger.info(f"✅ Código de recuperación enviado a {request.correo}")
+        except Exception as e:
+            logger.error(f"❌ Error al enviar correo con SendGrid: {e}")
+            raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No se pudo enviar el correo."})
 
         return {
-            "data": {"codigo_para_pruebas": codigo},  # 🔹 SOLO PARA PRUEBAS
+            "data": {},
             "estado": 200,
-            "mensaje": "Código de recuperación enviado correctamente."
+            "mensaje": "Respuesta procesada correctamente."
         }
 
     except SQLAlchemyError as e:
         logger.error(f"Error de base de datos: {e}")
         raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
 
+    except Exception as e:
+        logger.error(f"Error inesperado: {e}")
+        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "Ocurrió un error inesperado."})
+
     finally:
         if session:
             session.close()
-            logger.info("Sesión de base de datos cerrada.")
+            logger.info("🔹 Sesión de base de datos cerrada.")
+
+
 
 @app.post("/api/v1/auth/recuperar-contrasena")
 def recuperar_contrasena(
@@ -453,11 +523,7 @@ def recuperar_contrasena(
         try:
             payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
             usuario_id_token = payload.get("id")
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token expirado.")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
-        except jwt.InvalidTokenError:
-            logger.warning("Token inválido.")
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             raise HTTPException(status_code=401, detail={"message": "Token inválido"})
 
         session = SessionLocal()
@@ -471,7 +537,6 @@ def recuperar_contrasena(
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
 
         if not usuario:
-            logger.warning(f"Usuario con correo {request.correo} no encontrado o inactivo.")
             raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         # Verificar si el código ha expirado
@@ -479,8 +544,8 @@ def recuperar_contrasena(
             logger.warning(f"Código expirado para {request.correo}")
             raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "Código de recuperación expirado."})
 
-        # Verificar que el código ingresado es correcto (SIN HASH)
-        if usuario.codigo_recuperacion != request.codigo:
+        # Verificar que el código ingresado es correcto con el hash
+        if not pwd_context.verify(request.codigo, usuario.codigo_recuperacion):
             logger.warning(f"Código incorrecto para {request.correo}")
             raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "Código de recuperación incorrecto."})
 
@@ -516,7 +581,7 @@ def recuperar_contrasena(
     finally:
         if session:
             session.close()
-            logger.info("Sesión de base de datos cerrada.")
+
 
 #SIMULACIÓN DE LA API DE LOGIN DE LOS TRBAJADORES MYM
 # Modelo de solicitud para la API simulada
