@@ -4,3 +4,4 @@ python -m uvicorn mym_plataforma.main:app --reload
 python -m uvicorn mym_plataforma.main:app --port 8001 --reload
 pip install bcrypt==4.0.1 passlib
 
+pip install email-validator

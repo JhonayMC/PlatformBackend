@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from passlib.context import CryptContext
@@ -30,10 +31,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 engine = get_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Modificar el modelo para permitir campos opcionales
+
 class UsuarioLogin(BaseModel):
     correo: Optional[str] = None
     contrasena: Optional[str] = None
+
+# Modelo de solicitud para registrar usuario
+class RegistrarUsuarioRequest(BaseModel):
+    tipo_usuarios_id: int
+    tipo_documentos_id: int
+    documento: str
+    nombre_completo: str
+    correo: EmailStr
+    contrasena: str
+    recontrasena: str
+
 
 # Seguridad para obtener el token del header
 security = HTTPBearer()
@@ -123,49 +135,148 @@ def crear_token_jwt(data: dict):
 from fastapi import HTTPException
 
 @app.post("/api/v1/auth/iniciar-sesion")
-def iniciar_sesion(usuario: UsuarioLogin):
-    print("✅ Se recibió una solicitud en /api/v1/auth/iniciar-sesion")  # Mensaje de prueba
+async def iniciar_sesion(request: Request):
+    print("✅ Se recibió una solicitud en /api/v1/auth/iniciar-sesion")
 
     try:
-        logger.info(f"Solicitud recibida en /api/v1/auth/iniciar-sesion para el correo: {usuario.correo}")
+        usuario_data = await request.json()
+        errores = []
 
-        # Validar que ambos campos estén presentes
-        if not usuario.correo or not usuario.contrasena:
-            logger.warning("Faltan datos en la solicitud.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+        # Validar que los campos estén presentes
+        correo = usuario_data.get("correo")
+        contrasena = usuario_data.get("contrasena")
 
-        usuario_data = verificar_credenciales(usuario.correo, usuario.contrasena)
+        if not correo:
+            errores.append({"correo": ["El campo es obligatorio."]})
 
-        if usuario_data is None:
-            logger.warning(f"Credenciales incorrectas para el usuario: {usuario.correo}")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
-        
-        if usuario_data == "db_error":
-            logger.error("Error en la base de datos durante la autenticación")
-            raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        if not contrasena:
+            errores.append({"contrasena": ["El campo es obligatorio."]})
 
-        token = crear_token_jwt({"sub": usuario_data["correo"], "id": usuario_data["id"]})
+        if errores:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": errores,
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
 
-        logger.info(f"Autenticación exitosa para el usuario: {usuario.correo}")
+        usuario_validado = verificar_credenciales(correo, contrasena)
 
-        return {
-            "data": {
-                "usuario": usuario_data,
-                "token": token
-            },
-            "estado": 200,
-            "mensaje": "Respuesta procesada correctamente."
-        }
+        if usuario_validado is None:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": [
+                        {"correo": ["El correo o la contraseña son incorrectos."]},
+                        {"contrasena": ["El correo o la contraseña son incorrectos."]}
+                    ],
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
 
-    except HTTPException as http_error:
-        # Si ya es una excepción HTTP, la dejamos pasar sin modificar
-        raise http_error
+        if usuario_validado == "db_error":
+            return JSONResponse(
+                status_code=500,
+                content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
+            )
+
+        # Generar token JWT
+        token = crear_token_jwt({"sub": usuario_validado["correo"], "id": usuario_validado["id"]})
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "data": {
+                    "usuario": usuario_validado,
+                    "token": token
+                },
+                "estado": 200,
+                "mensaje": "Respuesta procesada correctamente."
+            }
+        )
 
     except Exception as e:
-        logger.error(f"Error inesperado en iniciar_sesion: {e}")
-        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        logging.error(f"Error inesperado en iniciar_sesion: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
+        )
 
+@app.post("/api/v1/auth/registrar")
+def registrar_usuario(request: RegistrarUsuarioRequest):
+    session: Optional[Session] = None
 
+    try:
+        session = SessionLocal()
+        
+        errores = []
+
+        # Verificar si el documento ya existe
+        query = text("SELECT id FROM USUARIOS WHERE documento = :documento")
+        usuario_existente = session.execute(query, {"documento": request.documento}).fetchone()
+
+        if usuario_existente:
+            errores.append({"documento": ["El documento ya está registrado."]})
+
+        # Verificar si el correo ya existe
+        query = text("SELECT id FROM USUARIOS WHERE correo = :correo")
+        correo_existente = session.execute(query, {"correo": request.correo}).fetchone()
+
+        if correo_existente:
+            errores.append({"correo": ["El correo ya está registrado."]})
+
+        # Verificar que las contraseñas coincidan
+        if request.contrasena != request.recontrasena:
+            errores.append({"contrasena": ["Las contraseñas no coinciden."]})
+
+        if errores:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": errores,
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+
+        # Hashear la contraseña antes de guardarla
+        contrasena_hash = pwd_context.hash(request.contrasena)
+
+        # Insertar nuevo usuario en la base de datos
+        insert_query = text("""
+            INSERT INTO USUARIOS (tipo_usuarios_id, tipo_documentos_id, documento, nombre_completo, correo, contrasena, estado, creado_el)
+            VALUES (:tipo_usuarios_id, :tipo_documentos_id, :documento, :nombre_completo, :correo, :contrasena, '1', :creado_el)
+        """)
+        session.execute(insert_query, {
+            "tipo_usuarios_id": request.tipo_usuarios_id,
+            "tipo_documentos_id": request.tipo_documentos_id,
+            "documento": request.documento,
+            "nombre_completo": request.nombre_completo,
+            "correo": request.correo,
+            "contrasena": contrasena_hash,
+            "creado_el": datetime.utcnow()
+        })
+        session.commit()
+
+        return {
+            "estado": 200,
+            "mensaje": "Cliente registrado"
+        }
+
+    except SQLAlchemyError as e:
+        if session:
+            session.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
+        )
+
+    finally:
+        if session:
+            session.close()
 
 
 @app.get("/api/v1/auth/cerrar-sesion")
@@ -406,6 +517,47 @@ def recuperar_contrasena(
         if session:
             session.close()
             logger.info("Sesión de base de datos cerrada.")
+
+#SIMULACIÓN DE LA API DE LOGIN DE LOS TRBAJADORES MYM
+# Modelo de solicitud para la API simulada
+class LoginSimuladoRequest(BaseModel):
+    cia: str
+    password: str
+    username: str
+
+# Endpoint para la API simulada
+@app.post("/logindb2/loginv2")
+def login_simulado(request: LoginSimuladoRequest):
+    """
+    API simulada para autenticación que responde con datos simulados sin conectarse a la base de datos.
+    """
+
+    # Simulación de credenciales correctas
+    USUARIO_CORRECTO = "TUUSUARIO"
+    PASSWORD_CORRECTO = "TUPASSWORD"
+    CIA_CORRECTO = "10"
+
+    if request.username == USUARIO_CORRECTO and request.password == PASSWORD_CORRECTO and request.cia == CIA_CORRECTO:
+        # Simulación de respuesta correcta
+        return {
+            "usuario": request.username,
+            "mensaje": "Usuario correcto",
+            "status": 200,
+            "data": {
+                "coduser": request.username,
+                "expiresDate": "1969-12-31 20:33:45",
+                "accesos": "MMCBR001,MMFEWEBSVR,MM023,MM035,MM042,MM078,MM102,MM143,MM172,MM196,MM205,MM214,MM21401,MM215,MM221,MM256,MM2754,MM341,MM405,MM457,MM4571,MM548,MM549,MM638,MM891,MM892"
+            }
+        }
+    
+    # Simulación de acceso inválido
+    return {
+        "usuario": request.username,
+        "mensaje": "Usuario o contraseña incorrecta",
+        "status": 401,
+        "data": None
+    }
+
 
 
 
