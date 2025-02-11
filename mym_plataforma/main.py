@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session
 import jwt
 import requests
 import os
-from .db_connection import get_engine
+import sys
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from db_connection import get_engine
 from sqlalchemy import text
 import logging
 from typing import Optional
@@ -86,8 +89,7 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool
     USE_CREDENTIALS: bool
 
-    class Config:
-        env_file = ".env"  # Archivo donde están las credenciales
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 settings = Settings()
 
@@ -256,7 +258,6 @@ async def iniciar_sesion(request: Request):
             content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
         )
 
-#VALIDADA CUMPLE SU FUNCION
 @app.post("/api/v1/auth/registrar")
 def registrar_usuario(request: RegistrarUsuarioRequest):
     session: Optional[Session] = None
@@ -273,9 +274,10 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
         if usuario_existente:
             errores.append({"documento": ["El documento ya está registrado."]})
 
-        # Verificar si el correo ya existe
+        # Convertir correo a minúsculas antes de la verificación y almacenamiento
+        correo_normalizado = request.correo.lower()
         query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE correo = :correo")
-        correo_existente = session.execute(query, {"correo": request.correo}).fetchone()
+        correo_existente = session.execute(query, {"correo": correo_normalizado}).fetchone()
 
         if correo_existente:
             errores.append({"correo": ["El correo ya está registrado."]})
@@ -294,8 +296,8 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
                 }
             )
 
-        # Hashear la contraseña antes de guardarla
-        contrasena_hash = pwd_context.hash(request.contrasena)
+        # Hashear la contraseña antes de guardarla (permitiendo caracteres especiales)
+        contrasena_hash = pwd_context.hash(request.contrasena, scheme="bcrypt")
 
         # Insertar nuevo usuario en la base de datos
         insert_query = text("""
@@ -307,7 +309,7 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
             "tipo_documentos_id": request.tipo_documentos_id,
             "documento": request.documento,
             "nombre_completo": request.nombre_completo,
-            "correo": request.correo,
+            "correo": correo_normalizado,  # Guardar correo en minúsculas
             "contrasena": contrasena_hash,
             "creado_el": datetime.utcnow()
         })
@@ -329,6 +331,8 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
     finally:
         if session:
             session.close()
+
+
 
 
 @app.get("/api/v1/auth/cerrar-sesion")
