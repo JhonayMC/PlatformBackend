@@ -130,7 +130,7 @@ def verificar_credenciales(correo: str, contrasena: str):
     try:
         session = SessionLocal()
         # Ejecutar la consulta SQL correctamente con text()
-        query = text("SELECT * FROM USUARIOS WHERE correo = :correo AND estado = '1'")
+        query = text("SELECT * FROM POSTVENTA.USUARIOS WHERE correo = :correo AND estado = '1'")
         usuario = session.execute(query, {"correo": correo}).fetchone()
         
         if not usuario:
@@ -256,6 +256,7 @@ async def iniciar_sesion(request: Request):
             content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
         )
 
+#VALIDADA CUMPLE SU FUNCION
 @app.post("/api/v1/auth/registrar")
 def registrar_usuario(request: RegistrarUsuarioRequest):
     session: Optional[Session] = None
@@ -266,14 +267,14 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
         errores = []
 
         # Verificar si el documento ya existe
-        query = text("SELECT id FROM USUARIOS WHERE documento = :documento")
+        query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE documento = :documento")
         usuario_existente = session.execute(query, {"documento": request.documento}).fetchone()
 
         if usuario_existente:
             errores.append({"documento": ["El documento ya está registrado."]})
 
         # Verificar si el correo ya existe
-        query = text("SELECT id FROM USUARIOS WHERE correo = :correo")
+        query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE correo = :correo")
         correo_existente = session.execute(query, {"correo": request.correo}).fetchone()
 
         if correo_existente:
@@ -298,7 +299,7 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
 
         # Insertar nuevo usuario en la base de datos
         insert_query = text("""
-            INSERT INTO USUARIOS (tipo_usuarios_id, tipo_documentos_id, documento, nombre_completo, correo, contrasena, estado, creado_el)
+            INSERT INTO POSTVENTA.USUARIOS (tipo_usuarios_id, tipo_documentos_id, documento, nombre_completo, correo, contrasena, estado, creado_el)
             VALUES (:tipo_usuarios_id, :tipo_documentos_id, :documento, :nombre_completo, :correo, :contrasena, '1', :creado_el)
         """)
         session.execute(insert_query, {
@@ -375,7 +376,7 @@ def cambiar_contrasena(
         session = SessionLocal()
 
         # Verificar si el usuario existe y obtener su contraseña actual
-        query = text("SELECT id, contrasena FROM USUARIOS WHERE id = :id AND estado = '1'")
+        query = text("SELECT id, contrasena FROM POSTVENTA.USUARIOS WHERE id = :id AND estado = '1'")
         usuario = session.execute(query, {"id": request.usuarios_id}).fetchone()
 
         if not usuario:
@@ -396,7 +397,7 @@ def cambiar_contrasena(
         nueva_contrasena_hash = pwd_context.hash(request.recontrasena)
 
         # Actualizar la contraseña en la base de datos
-        update_query = text("UPDATE USUARIOS SET contrasena = :nueva_contrasena WHERE id = :id")
+        update_query = text("UPDATE POSTVENTA.USUARIOS SET contrasena = :nueva_contrasena WHERE id = :id")
         session.execute(update_query, {"nueva_contrasena": nueva_contrasena_hash, "id": request.usuarios_id})
         session.commit()
 
@@ -452,7 +453,7 @@ async def obtener_codigo(
         session = SessionLocal()
 
         # Verificar si el usuario existe en la base de datos
-        query = text("SELECT id FROM USUARIOS WHERE correo = :correo AND estado = '1'")
+        query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE correo = :correo AND estado = '1'")
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
 
         if not usuario:
@@ -469,7 +470,7 @@ async def obtener_codigo(
 
         # Guardar el código en la base de datos
         update_query = text("""
-            UPDATE USUARIOS 
+            UPDATE POSTVENTA.USUARIOS 
             SET codigo_recuperacion = :codigo_hash, codigo_expiracion = :expiracion 
             WHERE correo = :correo
         """)
@@ -547,7 +548,7 @@ def recuperar_contrasena(
         # Buscar usuario y verificar código de recuperación
         query = text("""
             SELECT id, codigo_recuperacion, codigo_expiracion 
-            FROM USUARIOS 
+            FROM POSTVENTA.USUARIOS 
             WHERE correo = :correo AND estado = '1'
         """)
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
@@ -575,7 +576,7 @@ def recuperar_contrasena(
 
         # Actualizar la contraseña y eliminar el código de recuperación
         update_query = text("""
-            UPDATE USUARIOS 
+            UPDATE POSTVENTA.USUARIOS 
             SET contrasena = :nueva_contrasena, codigo_recuperacion = NULL, codigo_expiracion = NULL 
             WHERE correo = :correo
         """)

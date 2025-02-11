@@ -1,10 +1,13 @@
-pip install fastapi psycopg2 sqlalchemy pydantic python-dotenv passlib bcrypt pyjwt
-pip install uvicorn
-python -m uvicorn mym_plataforma.main:app --reload 
-python -m uvicorn mym_plataforma.main:app --port 8001 --reload
-pip install bcrypt==4.0.1 passlib
-
-pip install email-validator
-pip install fastapi-mail
-pip install pydantic-settings
+# 1-LEVANTAR PROYECTO EN PYTHON:
+# Primero en la terminal en Vscode ejecutar:
+# py -m venv venv
+# 2-Ingresar a la carpeta 
+# cd mym_plataforma
+# 3-Ejecutar el script de las depencias 
+# pip install -r ".\requirements.txt"
+# 4- luego ejecutar comando 
+# si esta  en la carpeta mym_plataforma
+# python -m uvicorn main:app --port 8001 --reload
+# si no esta  en la carpeta mym_plataforma
+# python -m uvicorn mym_plataforma.main:app --port 8001 --reload
 
