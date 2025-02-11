@@ -441,9 +441,13 @@ async def obtener_codigo(
         try:
             payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
             usuario_id_token = payload.get("id")
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
-
+        except jwt.ExpiredSignatureError:
+            logger.warning("❌ Token expirado.")
+            raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token expirado"})
+        except jwt.InvalidTokenError:
+            logger.warning("❌ Token inválido.")
+            raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+        
         # Iniciar la sesión de base de datos
         session = SessionLocal()
 
@@ -463,14 +467,21 @@ async def obtener_codigo(
         # Establecer tiempo de expiración (5 minutos desde ahora)
         expiracion = datetime.utcnow() + timedelta(minutes=5)
 
-        # Guardar el código hasheado en la base de datos
+        # Guardar el código en la base de datos
         update_query = text("""
             UPDATE USUARIOS 
             SET codigo_recuperacion = :codigo_hash, codigo_expiracion = :expiracion 
             WHERE correo = :correo
         """)
-        session.execute(update_query, {"codigo_hash": codigo_hash, "expiracion": expiracion, "correo": request.correo})
+        result = session.execute(update_query, {"codigo_hash": codigo_hash, "expiracion": expiracion, "correo": request.correo})
         session.commit()
+
+        # Verificar que se haya actualizado al menos una fila
+        if result.rowcount == 0:
+            logger.error(f"❌ No se pudo actualizar el código de recuperación en la base de datos para {request.correo}")
+            raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "Error al guardar el código en la base de datos."})
+
+        logger.info(f"✅ Código de recuperación guardado en la base de datos para {request.correo}")
 
         # Enviar el código por correo con SendGrid y FastMail
         message = MessageSchema(
@@ -491,12 +502,16 @@ async def obtener_codigo(
         return {
             "data": {},
             "estado": 200,
-            "mensaje": "Respuesta procesada correctamente."
+            "mensaje": "Código de recuperación enviado correctamente."
         }
 
     except SQLAlchemyError as e:
         logger.error(f"Error de base de datos: {e}")
         raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+
+    except HTTPException as http_error:
+        # 🔹 Permite que los errores 401 y 422 se devuelvan correctamente en lugar de atraparlos en Exception
+        raise http_error  
 
     except Exception as e:
         logger.error(f"Error inesperado: {e}")
@@ -505,6 +520,7 @@ async def obtener_codigo(
     finally:
         if session:
             session.close()
+            logger.info("Codigo enviado correctamene")
             logger.info("🔹 Sesión de base de datos cerrada.")
 
 
