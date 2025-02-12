@@ -224,13 +224,15 @@ def insertar_usuario(usuario_input: str, contrasena: str, empresa_id: str):
     try:
         session = SessionLocal()
         hashed_pass = pwd_context.hash(contrasena)
+                # Generar correo único basado en la fecha y hora UTC y el usuario
+        unique_email = datetime.utcnow().strftime("%Y%m%d%H%M%S") + "@" + usuario_input + ".com"
         query = text("""
             INSERT INTO POSTVENTA.USUARIOS 
             (tipo_usuarios_id, tipo_documentos_id, nombre_completo, documento, correo, usuario, contrasena, estado, empresa_id)
-            VALUES ('1','1','usuario mym','1','prueba@test.com', :usuario, :contrasena, '1', :empresa_id)
+            VALUES ('1','1','Usuario MYM','1', :correo, :usuario, :contrasena, '1', :empresa_id)
             RETURNING id
         """)
-        result = session.execute(query, {"usuario": usuario_input, "contrasena": hashed_pass, "empresa_id": empresa_id})
+        result = session.execute(query, {"correo": unique_email,"usuario": usuario_input, "contrasena": hashed_pass, "empresa_id": empresa_id})
         # Usar .mappings() para obtener un diccionario y acceder al campo "id"
         new_id = result.mappings().fetchone()["id"]
         session.commit()

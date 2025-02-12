@@ -145,9 +145,9 @@ def login_simulado(request: LoginSimuladoRequest):
     """
 
     # Simulación de credenciales correctas
-    USUARIO_CORRECTO = "AOBREGON4"
-    PASSWORD_CORRECTO = "1234"
-    CIA_CORRECTO = "12"
+    USUARIO_CORRECTO = "MAX123"
+    PASSWORD_CORRECTO = "123456"
+    CIA_CORRECTO = "14"
 
     if request.username == USUARIO_CORRECTO and request.password == PASSWORD_CORRECTO and request.cia == CIA_CORRECTO:
         # Simulación de respuesta correcta
