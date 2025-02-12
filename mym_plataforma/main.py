@@ -35,7 +35,6 @@ app.add_middleware(
     allow_methods=["*"],  # Permite todos los métodos HTTP
     allow_headers=["*"],  # Permite todos los encabezados
 )
-
 # Configurar el contexto de encriptación (CORREGIDO bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
