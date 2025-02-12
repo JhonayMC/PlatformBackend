@@ -22,9 +22,19 @@ from typing import Optional
 import random
 import string
 from datetime import datetime, timedelta
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configuración de FastAPI
 app = FastAPI()
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite todas las fuentes, puedes especificar dominios específicos
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos los métodos HTTP
+    allow_headers=["*"],  # Permite todos los encabezados
+)
 
 # Configurar el contexto de encriptación (CORREGIDO bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
