@@ -778,46 +778,6 @@ def recuperar_contrasena(request: RecuperarContrasenaRequest):
 
 
 
-# #SIMULACIÓN DE LA API DE LOGIN DE LOS TRBAJADORES MYM
-# # Modelo de solicitud para la API simulada
-# class LoginSimuladoRequest(BaseModel):
-#     cia: str
-#     password: str
-#     username: str
-
-# # Endpoint para la API simulada
-# @app.post("/logindb2/loginv2")
-# def login_simulado(request: LoginSimuladoRequest):
-#     """
-#     API simulada para autenticación que responde con datos simulados sin conectarse a la base de datos.
-#     """
-
-#     # Simulación de credenciales correctas
-#     USUARIO_CORRECTO = "AOBREGON"
-#     PASSWORD_CORRECTO = "123456"
-#     CIA_CORRECTO = "10"
-
-#     if request.username == USUARIO_CORRECTO and request.password == PASSWORD_CORRECTO and request.cia == CIA_CORRECTO:
-#         # Simulación de respuesta correcta
-#         return {
-#             "usuario": request.username,
-#             "mensaje": "Usuario correcto",
-#             "status": 200,
-#             "data": {
-#                 "coduser": request.username,
-#                 "expiresDate": "1969-12-31 20:33:45",
-#                 "accesos": "MMCBR001,MMFEWEBSVR,MM023,MM035,MM042,MM078,MM102,MM143,MM172,MM196,MM205,MM214,MM21401,MM215,MM221,MM256,MM2754,MM341,MM405,MM457,MM4571,MM548,MM549,MM638,MM891,MM892"
-#             }
-#         }
-    
-#     # Simulación de acceso inválido
-#     return {
-#         "usuario": request.username,
-#         "mensaje": "Usuario o contraseña incorrecta",
-#         "status": 401,
-#         "data": None
-#     }
-
 
 
 
