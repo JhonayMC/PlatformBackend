@@ -272,6 +272,12 @@ def crear_token_jwt(data: dict):
 
 # Endpoint para iniciar sesión
 from fastapi import HTTPException
+# Definir la consulta SQL fuera de los condicionales para que esté disponible en ambos casos
+insert_token_query = text("""
+    INSERT INTO POSTVENTA.USUARIOS_TOKENS (usuarios_id, token, creado_el, expira_el)
+    VALUES (:usuarios_id, :token, :creado_el, :expira_el)
+""")
+
 @app.post("/api/v1/auth/iniciar-sesion")
 async def iniciar_sesion(request: Request):
     try:
@@ -319,6 +325,19 @@ async def iniciar_sesion(request: Request):
                 )
 
             token = crear_token_jwt({"sub": usuario_validado["usuario"], "id": usuario_validado["id"]})
+            creado_el = datetime.utcnow()
+            expira_el = creado_el + timedelta(hours=3)
+
+            session = SessionLocal()
+            session.execute(insert_token_query, {
+                "usuarios_id": usuario_validado["id"],
+                "token": token,
+                "creado_el": creado_el,
+                "expira_el": expira_el
+            })
+            session.commit()
+            session.close()
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -352,8 +371,21 @@ async def iniciar_sesion(request: Request):
                             status_code=500,
                             content={"estado": 500, "mensaje": "Error al insertar el usuario en la BD."}
                         )
-                # Generar token y retornar respuesta
+                # Generar token y guardar en BD
                 token = crear_token_jwt({"sub": usuario_validado["usuario"], "id": usuario_validado["id"]})
+                creado_el = datetime.utcnow()
+                expira_el = creado_el + timedelta(hours=3)
+
+                session = SessionLocal()
+                session.execute(insert_token_query, {
+                    "usuarios_id": usuario_validado["id"],
+                    "token": token,
+                    "creado_el": creado_el,
+                    "expira_el": expira_el
+                })
+                session.commit()
+                session.close()
+
                 return JSONResponse(
                     status_code=200,
                     content={
@@ -379,6 +411,7 @@ async def iniciar_sesion(request: Request):
             status_code=500,
             content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
         )
+
         
   
 @app.post("/api/v1/auth/registrar")
@@ -456,12 +489,48 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
         if session:
             session.close()
 
+def eliminar_token_de_bd(token: str, usuario_id: int):
+    session = SessionLocal()
+    try:
+        # Buscar el token en la base de datos
+        query = text("SELECT id FROM POSTVENTA.USUARIOS_TOKENS WHERE usuarios_id = :usuarios_id AND token = :token")
+        token_registrado = session.execute(query, {"usuarios_id": usuario_id, "token": token}).fetchone()
 
+        if not token_registrado:
+            logger.warning("Token no encontrado en la base de datos.")
+            return False
 
+        # Eliminar el token de la base de datos
+        delete_query = text("DELETE FROM POSTVENTA.USUARIOS_TOKENS WHERE id = :token_id")
+        session.execute(delete_query, {"token_id": token_registrado[0]})
+        session.commit()
+        logger.info("Token eliminado correctamente de la base de datos.")
+        return True
+    except Exception as e:
+        logger.error(f"Error al eliminar token: {e}")
+        return False
+    finally:
+        session.close()
 
 @app.get("/api/v1/auth/cerrar-sesion")
-def cerrar_sesion():
-    logger.info("Sesión cerrada correctamente.")
+def cerrar_sesion(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials  # Obtener el token del header
+    logger.info("Intentando cerrar sesión con token recibido.")
+
+    # Decodificar el token y verificar si es válido
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        usuario_id = payload.get("id")
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token expirado.")
+        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+    except jwt.InvalidTokenError:
+        logger.warning("Token inválido.")
+        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+
+    if not eliminar_token_de_bd(token, usuario_id):
+        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+
     return {
         "estado": 200,
         "mensaje": "Sesión cerrada correctamente."
@@ -475,33 +544,37 @@ def cambiar_contrasena(
     session: Optional[Session] = None  # Inicializar sesión para evitar el UnboundLocalError
 
     try:
+        token = credentials.credentials  # Obtener el token del header
         logger.info(f"Solicitud de cambio de contraseña para usuario ID: {request.usuarios_id}")
 
-        # Validar que todos los campos estén presentes
-        if not request.usuarios_id or not request.contrasena or not request.recontrasena:
-            logger.warning("Faltan datos en la solicitud de cambio de contraseña.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+        session = SessionLocal()
+
+        # Verificar si el token existe en la base de datos
+        query = text("SELECT id FROM POSTVENTA.USUARIOS_TOKENS WHERE usuarios_id = :usuarios_id AND token = :token")
+        token_registrado = session.execute(query, {"usuarios_id": request.usuarios_id, "token": token}).fetchone()
+
+        if not token_registrado:
+            logger.warning("Token inválido o ya eliminado.")
+            return JSONResponse(status_code=401, content={"message": "Token inválido"})
 
         # Decodificar el token y verificar si es válido
         try:
-            payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             usuario_id_token = payload.get("id")
         except jwt.ExpiredSignatureError:
             logger.warning("Token expirado.")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
+            return JSONResponse(status_code=401, content={"message": "Token inválido"})
         except jwt.InvalidTokenError:
             logger.warning("Token inválido.")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
+            return JSONResponse(status_code=401, content={"message": "Token inválido"})
         except Exception as e:
             logger.error(f"Error en la decodificación del token: {e}")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
+            return JSONResponse(status_code=401, content={"message": "Token inválido"})
 
         # Validar que el token pertenece al usuario que intenta cambiar la contraseña
         if usuario_id_token != request.usuarios_id:
             logger.warning("Intento de cambiar contraseña con un token no autorizado.")
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
-
-        session = SessionLocal()
+            return JSONResponse(status_code=401, content={"message": "Token inválido"})
 
         # Verificar si el usuario existe y obtener su contraseña actual
         query = text("SELECT id, contrasena FROM POSTVENTA.USUARIOS WHERE id = :id AND estado = '1'")
@@ -509,17 +582,17 @@ def cambiar_contrasena(
 
         if not usuario:
             logger.warning(f"Usuario con ID {request.usuarios_id} no encontrado o inactivo.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         # Verificar que la contraseña ingresada es la actual
         if not pwd_context.verify(request.contrasena, usuario[1]):  # usuario[1] es la contraseña almacenada
             logger.warning("La contraseña actual no es válida.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         # Verificar que la nueva contraseña es diferente a la actual
         if request.contrasena == request.recontrasena:
             logger.warning("La nueva contraseña no puede ser igual a la actual.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "La nueva contraseña no puede ser igual a la anterior."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         # Hashear la nueva contraseña
         nueva_contrasena_hash = pwd_context.hash(request.recontrasena)
@@ -531,25 +604,28 @@ def cambiar_contrasena(
 
         logger.info(f"Contraseña cambiada exitosamente para usuario ID: {request.usuarios_id}")
 
+        # Cerrar sesión después de cambiar la contraseña
+        if not eliminar_token_de_bd(token, request.usuarios_id):
+            return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+
         return {
             "data": {},
             "estado": 200,
-            "mensaje": "Respuesta procesada correctamente."
+            "mensaje": "Contraseña cambiada correctamente y sesión cerrada."
         }
 
     except SQLAlchemyError as e:
         if session:
             session.rollback()
         logger.error(f"Error de base de datos: {e}")
-        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
 
     except HTTPException as http_error:
-        # Dejar pasar los errores HTTP sin capturarlos como 500
         raise http_error
 
     except Exception as e:
         logger.error(f"Error inesperado en cambiar_contrasena: {e}")
-        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
 
     finally:
         if session:
@@ -557,26 +633,12 @@ def cambiar_contrasena(
             logger.info("Sesión de base de datos cerrada.")
 
 @app.post("/api/v1/auth/obtener-codigo")
-async def obtener_codigo(
-    request: ObtenerCodigoRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+async def obtener_codigo(request: ObtenerCodigoRequest):
     session: Optional[Session] = None
 
     try:
         logger.info(f"Solicitud de obtención de código para el correo: {request.correo}")
 
-        # Validar el token antes de continuar
-        try:
-            payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-            usuario_id_token = payload.get("id")
-        except jwt.ExpiredSignatureError:
-            logger.warning("❌ Token expirado.")
-            raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token expirado"})
-        except jwt.InvalidTokenError:
-            logger.warning("❌ Token inválido.")
-            raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
-        
         # Iniciar la sesión de base de datos
         session = SessionLocal()
 
@@ -639,7 +701,6 @@ async def obtener_codigo(
         raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
 
     except HTTPException as http_error:
-        # 🔹 Permite que los errores 401 y 422 se devuelvan correctamente en lugar de atraparlos en Exception
         raise http_error  
 
     except Exception as e:
@@ -649,27 +710,15 @@ async def obtener_codigo(
     finally:
         if session:
             session.close()
-            logger.info("Codigo enviado correctamene")
+            logger.info("Código enviado correctamente")
             logger.info("🔹 Sesión de base de datos cerrada.")
 
-
-
 @app.post("/api/v1/auth/recuperar-contrasena")
-def recuperar_contrasena(
-    request: RecuperarContrasenaRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+def recuperar_contrasena(request: RecuperarContrasenaRequest):
     session: Optional[Session] = None  
 
     try:
         logger.info(f"Solicitud de recuperación de contraseña para el correo: {request.correo}")
-
-        # Validación del token
-        try:
-            payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-            usuario_id_token = payload.get("id")
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            raise HTTPException(status_code=401, detail={"message": "Token inválido"})
 
         session = SessionLocal()
 
@@ -726,6 +775,7 @@ def recuperar_contrasena(
     finally:
         if session:
             session.close()
+
 
 
 # #SIMULACIÓN DE LA API DE LOGIN DE LOS TRBAJADORES MYM

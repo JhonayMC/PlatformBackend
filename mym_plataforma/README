@@ -8,8 +8,9 @@
 # 4- luego ejecutar comando 
 # si esta  en la carpeta mym_plataforma
 # python -m uvicorn main:app --port 8001 --reload
-# 4- luego ejecutar comando para simular el api de mym debe ser en otro puerto y terminal
-# python -m uvicorn main2:app --port 8002 --reload
 # si no esta  en la carpeta mym_plataforma
 # python -m uvicorn mym_plataforma.main:app --port 8001 --reload
+# 5- luego ejecutar comando para simular el api de mym debe ser en otro puerto y terminal
+# python -m uvicorn main2:app --port 8002 --reload
+
 
