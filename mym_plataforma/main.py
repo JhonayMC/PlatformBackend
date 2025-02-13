@@ -23,6 +23,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 
 # Configuración de FastAPI
 app = FastAPI()
@@ -421,8 +422,17 @@ async def iniciar_sesion(request: Request):
             content={"estado": 500, "mensaje": "No es posible conectarse al servidor."}
         )
 
-        
-  
+         
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "estado": 422,
+            "mensaje": "No es posible procesar los datos enviados."
+        }
+    )
+
 @app.post("/api/v1/auth/registrar")
 def registrar_usuario(request: RegistrarUsuarioRequest):
     session: Optional[Session] = None
@@ -455,7 +465,6 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
             return JSONResponse(
                 status_code=422,
                 content={
-                    "errores": errores,
                     "estado": 422,
                     "mensaje": "No es posible procesar los datos enviados."
                 }
@@ -466,14 +475,14 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
 
         # Insertar nuevo usuario en la base de datos
         insert_query = text("""
-            INSERT INTO POSTVENTA.USUARIOS (tipo_usuarios_id, tipo_documentos_id, documento, usuario,nombre_completo, correo, contrasena, estado, creado_el)
-            VALUES (:tipo_usuarios_id, :tipo_documentos_id, :documento, :documento,:nombre_completo, :correo, :contrasena, '1', :creado_el)
+            INSERT INTO POSTVENTA.USUARIOS (tipo_usuarios_id, tipo_documentos_id, documento, usuario, nombre_completo, correo, contrasena, estado, creado_el)
+            VALUES (:tipo_usuarios_id, :tipo_documentos_id, :documento, :documento, :nombre_completo, :correo, :contrasena, '1', :creado_el)
         """)
         session.execute(insert_query, {
             "tipo_usuarios_id": request.tipo_usuarios_id,
             "tipo_documentos_id": request.tipo_documentos_id,
             "documento": request.documento,
-            "usuario" : request.documento,
+            "usuario": request.documento,
             "nombre_completo": request.nombre_completo,
             "correo": correo_normalizado,  # Guardar correo en minúsculas
             "contrasena": contrasena_hash,
