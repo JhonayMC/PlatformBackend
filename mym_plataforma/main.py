@@ -425,13 +425,32 @@ async def iniciar_sesion(request: Request):
          
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errores = {}
+
+    for error in exc.errors():
+        campo = error["loc"][-1]
+        mensaje_error = error["msg"]
+
+        # Traducir "Field required" a "Campo requerido"
+        if mensaje_error == "Field required":
+            mensaje_error = "Campo requerido"
+
+        # Agregar el error al diccionario de errores
+        if campo in errores:
+            errores[campo].append(mensaje_error)
+        else:
+            errores[campo] = [mensaje_error]
+
     return JSONResponse(
         status_code=422,
         content={
+            "errores": errores,  # Ahora es un objeto
             "estado": 422,
             "mensaje": "No es posible procesar los datos enviados."
         }
     )
+
+
 
 @app.post("/api/v1/auth/registrar")
 def registrar_usuario(request: RegistrarUsuarioRequest):
@@ -465,6 +484,7 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
             return JSONResponse(
                 status_code=422,
                 content={
+                    "errores": errores,
                     "estado": 422,
                     "mensaje": "No es posible procesar los datos enviados."
                 }
