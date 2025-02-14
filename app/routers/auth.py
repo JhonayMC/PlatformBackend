@@ -163,6 +163,28 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
     try:
         errores = {}
 
+        # Validación de campos obligatorios
+        if not request.documento.strip():
+            errores["documento"] = ["El documento es obligatorio."]
+        if not request.nombre_completo.strip():
+            errores["nombre_completo"] = ["El nombre completo es obligatorio."]
+        if not request.correo.strip():
+            errores["correo"] = ["El correo es obligatorio."]
+        if not request.contrasena.strip():
+            errores["contrasena"] = ["La contraseña es obligatoria."]
+        if not request.recontrasena.strip():
+            errores["recontrasena"] = ["Debe repetir la contraseña."]
+
+        if errores:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": errores,
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+
         query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE documento = :documento")
         usuario_existente = session.execute(query, {"documento": request.documento}).fetchone()
 
@@ -219,6 +241,7 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
         )
     finally:
         session.close()
+
 
 @router.get("/cerrar-sesion")
 def cerrar_sesion(credenciales: HTTPAuthorizationCredentials = Depends(security)):
