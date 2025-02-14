@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 class UsuarioLogin(BaseModel):
@@ -15,9 +15,9 @@ class RegistrarUsuarioRequest(BaseModel):
     recontrasena: str
 
 class CambiarContrasenaRequest(BaseModel):
-    usuarios_id: Optional[int] = None
-    contrasena: Optional[str] = None
-    recontrasena: Optional[str] = None
+    usuarios_id: int
+    contrasena: str = Field(..., description="El campo es obligatorio.")
+    recontrasena: str = Field(..., description="El campo es obligatorio.")
 
 class ObtenerCodigoRequest(BaseModel):
     correo: str

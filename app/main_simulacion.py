@@ -86,58 +86,9 @@ class RecuperarContrasenaRequest(BaseModel):
     contrasena: str
     recontrasena: str
 
-#Configuración para obtener codigo:
-# Cargar configuración desde variables de entorno
-class Settings(BaseSettings):
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str
-    MAIL_SERVER: str
-    MAIL_PORT: int
-    MAIL_STARTTLS: bool
-    MAIL_SSL_TLS: bool
-    USE_CREDENTIALS: bool
-
-    model_config = SettingsConfigDict(env_file=".env", extra="allow")
-
-settings = Settings()
-
-# Configuración de FastMail con SendGrid
-conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM=os.getenv("MAIL_FROM"),
-    MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_PORT=int(os.getenv("MAIL_PORT")),
-    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS") == "True",
-    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS") == "True",
-    USE_CREDENTIALS=os.getenv("USE_CREDENTIALS") == "True"
-)
-
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
-class ObtenerCodigoRequest(BaseSettings):
-    correo: str
-
-async def enviar_correo(destinatario, codigo):
-    message = MessageSchema(
-        subject="Código de Recuperación",
-        recipients=[destinatario],
-        body=f"Tu código de recuperación es: {codigo}. Este código expira en 5 minutos.",
-        subtype="plain"
-    )
-    try:
-        fm = FastMail(settings)
-        await fm.send_message(message)
-        logging.info("Correo enviado correctamente.")
-    except Exception as e:
-        logging.error(f"Error enviando correo: {e}")
-
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-
 
 #SIMULACIÓN DE LA API DE LOGIN DE LOS TRBAJADORES MYM
 # Modelo de solicitud para la API simulada

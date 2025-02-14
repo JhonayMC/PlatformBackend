@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import ValidationError
 from sqlalchemy import text
 from datetime import datetime, timedelta
 import random, string, jwt
@@ -220,27 +221,25 @@ def registrar_usuario(request: RegistrarUsuarioRequest):
         session.close()
 
 @router.get("/cerrar-sesion")
-def cerrar_sesion(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    logger.info("Intentando cerrar sesión con token recibido.")
+def cerrar_sesion(credenciales: HTTPAuthorizationCredentials = Depends(security)):
+    token = credenciales.credentials
+    logger.info("Intención de cerrar sesión con token recibido.")
 
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         usuario_id = payload.get("id")
     except jwt.ExpiredSignatureError:
         logger.warning("Token expirado.")
-        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
     except jwt.InvalidTokenError:
         logger.warning("Token inválido.")
-        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
 
     if not auth_service.eliminar_token_de_bd(token, usuario_id):
-        raise HTTPException(status_code=401, detail={"estado": 401, "mensaje": "Token inválido"})
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
 
-    return {
-        "estado": 200,
-        "mensaje": "Sesión cerrada correctamente."
-    }
+    return JSONResponse(status_code=200, content={"estado": 200, "mensaje": "Sesión cerrada exitosamente"})
+
 
 @router.post("/cambiar-contrasena")
 def cambiar_contrasena(
@@ -302,6 +301,17 @@ def cambiar_contrasena(
             "mensaje": "Contraseña cambiada correctamente y sesión cerrada."
         }
 
+    except ValidationError as e:
+        errores = {}
+        for error in e.errors():
+            campo = error["loc"][0]
+            mensaje = error["msg"]
+            errores.setdefault(campo, []).append(mensaje)
+        return JSONResponse(status_code=422, content={
+            "errores": errores,
+            "estado": 422,
+            "mensaje": "No es posible procesar los datos enviados."
+        })
     except Exception as e:
         session.rollback()
         logger.error(f"Error inesperado en cambiar_contrasena: {e}")
@@ -314,17 +324,16 @@ async def obtener_codigo(request: ObtenerCodigoRequest):
     session = SessionLocal()
     try:
         logger.info(f"Solicitud de obtención de código para el correo: {request.correo}")
-
         query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE correo = :correo AND estado = '1'")
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
-
+        
         if not usuario:
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
-
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+        
         codigo = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         codigo_hash = hash_password(codigo)
         expiracion = datetime.utcnow() + timedelta(minutes=5)
-
+        
         update_query = text("""
             UPDATE POSTVENTA.USUARIOS 
             SET codigo_recuperacion = :codigo_hash, codigo_expiracion = :expiracion 
@@ -332,26 +341,27 @@ async def obtener_codigo(request: ObtenerCodigoRequest):
         """)
         result = session.execute(update_query, {"codigo_hash": codigo_hash, "expiracion": expiracion, "correo": request.correo})
         session.commit()
-
+        
         if result.rowcount == 0:
             logger.error(f"❌ No se pudo actualizar el código de recuperación en la BD para {request.correo}")
-            raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "Error al guardar el código en la BD."})
-
-        await email_service.enviar_correo(request.correo, codigo)
+            return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "Error al guardar el código en la BD."})
+        
+        # Verificar si el envío del correo fue exitoso
+        if not await email_service.enviar_correo(request.correo, codigo):
+            return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "Error al enviar el correo electrónico."})
+            
         logger.info(f"✅ Código de recuperación enviado a {request.correo}")
-
-        return {
+        
+        return JSONResponse(status_code=200, content={
             "data": {},
             "estado": 200,
             "mensaje": "Código de recuperación enviado correctamente."
-        }
-
-    except HTTPException as http_error:
-        raise http_error  
+        })
+        
     except Exception as e:
         session.rollback()
         logger.error(f"Error inesperado: {e}")
-        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
     finally:
         session.close()
 
@@ -368,22 +378,33 @@ def recuperar_contrasena(request: RecuperarContrasenaRequest):
         """)
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
 
-        if not usuario:
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+        if usuario is None:
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
-        usuario_dict = dict(usuario)
+        # ✅ Convertir usuario en un diccionario correctamente
+        usuario_dict = dict(zip(["id", "codigo_recuperacion", "codigo_expiracion"], usuario))
+
+        # ✅ Validar si existe un código de recuperación
+        if not usuario_dict.get("codigo_recuperacion"):
+            logger.warning(f"No existe un código de recuperación para {request.correo}")
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No existe un código de recuperación activo."})
+
+        # ✅ Verificar si el código ha expirado
         if usuario_dict.get("codigo_expiracion") and datetime.utcnow() > usuario_dict["codigo_expiracion"]:
             logger.warning(f"Código expirado para {request.correo}")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "Código de recuperación expirado."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Código de recuperación expirado."})
 
+        # ✅ Verificar si el código es incorrecto
         if not verify_password(request.codigo, usuario_dict["codigo_recuperacion"]):
             logger.warning(f"Código incorrecto para {request.correo}")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "Código de recuperación incorrecto."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Código de recuperación incorrecto."})
 
+        # ✅ Verificar si las contraseñas coinciden
         if request.contrasena != request.recontrasena:
             logger.warning("Las contraseñas no coinciden.")
-            raise HTTPException(status_code=422, detail={"estado": 422, "mensaje": "Las contraseñas no coinciden."})
+            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Las contraseñas no coinciden."})
 
+        # ✅ Actualizar la contraseña
         nueva_contrasena_hash = hash_password(request.recontrasena)
         update_query = text("""
             UPDATE POSTVENTA.USUARIOS 
@@ -394,18 +415,17 @@ def recuperar_contrasena(request: RecuperarContrasenaRequest):
         session.commit()
 
         logger.info(f"Contraseña cambiada exitosamente para {request.correo}")
-        return {
+        return JSONResponse(status_code=200, content={
             "data": {},
             "estado": 200,
             "mensaje": "Contraseña cambiada correctamente."
-        }
+        })
 
-    except HTTPException as http_error:
-        raise http_error
     except Exception as e:
         session.rollback()
         logger.error(f"Error de BD: {e}")
-        raise HTTPException(status_code=500, detail={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
     finally:
         session.close()
+
         

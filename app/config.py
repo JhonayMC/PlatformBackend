@@ -13,7 +13,10 @@ CORS_ORIGINS = [
     "http://localhost:5175"
 ]
 
-# Configuración para envío de correos
+from fastapi_mail import ConnectionConfig
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 class Settings(BaseSettings):
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
@@ -26,4 +29,16 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
-settings = Settings()
+settings = Settings()   
+
+conf = ConnectionConfig( 
+    MAIL_USERNAME=settings.MAIL_USERNAME,
+    MAIL_PASSWORD=settings.MAIL_PASSWORD,
+    MAIL_FROM=settings.MAIL_FROM,
+    MAIL_SERVER=settings.MAIL_SERVER,
+    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_STARTTLS=settings.MAIL_STARTTLS,
+    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+    USE_CREDENTIALS=settings.USE_CREDENTIALS,
+)
+
