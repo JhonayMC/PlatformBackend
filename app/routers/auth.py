@@ -347,12 +347,22 @@ async def obtener_codigo(request: ObtenerCodigoRequest):
     session = SessionLocal()
     try:
         logger.info(f"Solicitud de obtención de código para el correo: {request.correo}")
+        
         query = text("SELECT id FROM POSTVENTA.USUARIOS WHERE correo = :correo AND estado = '1'")
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
         
         if not usuario:
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
-        
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {
+                        "correo": ["Correo inválido."]
+                    },
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+
         codigo = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         codigo_hash = hash_password(codigo)
         expiracion = datetime.utcnow() + timedelta(minutes=5)
@@ -367,32 +377,59 @@ async def obtener_codigo(request: ObtenerCodigoRequest):
         
         if result.rowcount == 0:
             logger.error(f"❌ No se pudo actualizar el código de recuperación en la BD para {request.correo}")
-            return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "Error al guardar el código en la BD."})
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "estado": 500,
+                    "mensaje": "Error al guardar el código en la BD."
+                }
+            )
         
         # Verificar si el envío del correo fue exitoso
         if not await email_service.enviar_correo(request.correo, codigo):
-            return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "Error al enviar el correo electrónico."})
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "estado": 500,
+                    "mensaje": "Error al enviar el correo electrónico."
+                }
+            )
             
         logger.info(f"✅ Código de recuperación enviado a {request.correo}")
         
-        return JSONResponse(status_code=200, content={
-            "data": {},
-            "estado": 200,
-            "mensaje": "Código de recuperación enviado correctamente."
-        })
+        return JSONResponse(
+            status_code=200,
+            content={
+                "data": {},
+                "estado": 200,
+                "mensaje": "Código de recuperación enviado correctamente."
+            }
+        )
         
     except Exception as e:
         session.rollback()
         logger.error(f"Error inesperado: {e}")
-        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(
+            status_code=500,
+            content={
+                "estado": 500,
+                "mensaje": "No es posible conectarse al servidor."
+            }
+        )
     finally:
         session.close()
 
 @router.post("/recuperar-contrasena")
 def recuperar_contrasena(request: RecuperarContrasenaRequest):
     session = SessionLocal()
+    errores = {}
+
     try:
         logger.info(f"Solicitud de recuperación de contraseña para el correo: {request.correo}")
+
+        # Validaciones iniciales
+        if not request.codigo.strip():
+            errores["codigo"] = ["Campo obligatorio"]
 
         query = text("""
             SELECT id, codigo_recuperacion, codigo_expiracion 
@@ -402,32 +439,45 @@ def recuperar_contrasena(request: RecuperarContrasenaRequest):
         usuario = session.execute(query, {"correo": request.correo}).fetchone()
 
         if usuario is None:
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+            errores["correo"] = ["Correo inválido."]
 
-        # ✅ Convertir usuario en un diccionario correctamente
+        if errores:  # Si ya hay errores, retornarlos sin continuar
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": errores,
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+
         usuario_dict = dict(zip(["id", "codigo_recuperacion", "codigo_expiracion"], usuario))
 
-        # ✅ Validar si existe un código de recuperación
+        # Validar código de recuperación
         if not usuario_dict.get("codigo_recuperacion"):
-            logger.warning(f"No existe un código de recuperación para {request.correo}")
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No existe un código de recuperación activo."})
+            errores["codigo"] = ["Código de recuperación incorrecto."]
 
-        # ✅ Verificar si el código ha expirado
         if usuario_dict.get("codigo_expiracion") and datetime.utcnow() > usuario_dict["codigo_expiracion"]:
-            logger.warning(f"Código expirado para {request.correo}")
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Código de recuperación expirado."})
+            errores["codigo"] = ["Código de recuperación incorrecto."]
 
-        # ✅ Verificar si el código es incorrecto
         if not verify_password(request.codigo, usuario_dict["codigo_recuperacion"]):
-            logger.warning(f"Código incorrecto para {request.correo}")
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Código de recuperación incorrecto."})
+            errores["codigo"] = ["Código de recuperación incorrecto."]
 
-        # ✅ Verificar si las contraseñas coinciden
+        # Verificar si las contraseñas coinciden
         if request.contrasena != request.recontrasena:
-            logger.warning("Las contraseñas no coinciden.")
-            return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "Las contraseñas no coinciden."})
+            errores["recontrasena"] = ["Las contraseñas no coinciden"]
 
-        # ✅ Actualizar la contraseña
+        if errores:  # Si hay errores, los retornamos todos juntos
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": errores,
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+
+        # Actualizar la contraseña
         nueva_contrasena_hash = hash_password(request.recontrasena)
         update_query = text("""
             UPDATE POSTVENTA.USUARIOS 
@@ -438,17 +488,26 @@ def recuperar_contrasena(request: RecuperarContrasenaRequest):
         session.commit()
 
         logger.info(f"Contraseña cambiada exitosamente para {request.correo}")
-        return JSONResponse(status_code=200, content={
-            "data": {},
-            "estado": 200,
-            "mensaje": "Contraseña cambiada correctamente."
-        })
+        return JSONResponse(
+            status_code=200,
+            content={
+                "data": {},
+                "estado": 200,
+                "mensaje": "Contraseña cambiada correctamente."
+            }
+        )
 
     except Exception as e:
         session.rollback()
         logger.error(f"Error de BD: {e}")
-        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
+        return JSONResponse(
+            status_code=500,
+            content={
+                "estado": 500,
+                "mensaje": "No es posible conectarse al servidor."
+            }
+        )
     finally:
         session.close()
 
-        
+
