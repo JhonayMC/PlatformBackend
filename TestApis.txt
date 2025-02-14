@@ -1,0 +1,66 @@
+Para la api registrar usuario POST
+
+http://127.0.0.1:8001/api/v1/auth/registrar
+
+{
+    "tipo_usuarios_id": 1,
+    "tipo_documentos_id": 1,
+    "documento": "45612379",
+    "nombre_completo": "Test Contra1",
+    "correo": "TestCONTRA2@gmail.com",
+    "contrasena": "user123@*",
+    "recontrasena": "user123@*"
+}
+
+Para la api de iniciar sesion POST 
+http://127.0.0.1:8001/api/v1/auth/iniciar-sesion
+
+Para los clientes:
+{
+  "usuario": "MAX123",
+  "contrasena": "123456"
+}
+Para los trabajadores(no olvidar ejecutar main2, comando en el README):
+{
+  "empresa_id": "14",
+  "usuario": "MAX123",
+  "contrasena": "123456"
+}
+
+
+Para la api cerrar sesion GET
+http://127.0.0.1:8001/api/v1/auth/cerrar-sesion
+Pasar el token generado al inicar sesión
+
+
+
+Para la api cambiar contraseña POST
+http://127.0.0.1:8001/api/v1/auth/cambiar-contrasena
+
+pasar el token que se genera al iniciar sesion
+y en el cuerpo. contrasena es la contraseña actual y
+recontrasena la que queremos poner
+
+{
+  "usuarios_id": 16,
+  "contrasena": "user123",
+  "recontrasena": "user123@*"
+}
+
+Para la api obtener codigo POST
+http://127.0.0.1:8001/api/v1/auth/obtener-codigo
+{
+  "correo": "pruebaangel@gmail.com"
+}
+
+
+
+Para la api recuperar contraseña POST
+http://127.0.0.1:8001/api/v1/auth/recuperar-contrasena
+Poner el codigo que llega al correo
+{
+  "correo": "pruebaangel@gmail.com",
+  "codigo": "K44I47",
+  "contrasena": "user123",
+  "recontrasena": "user123"
+}
