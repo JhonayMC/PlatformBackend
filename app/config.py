@@ -8,9 +8,10 @@ TOKEN_EXPIRE_HOURS = 3  # Para el vencimiento del token en la BD
 
 # Configuración de CORS
 CORS_ORIGINS = [
-    "http://localhost:5174",
-    "http://localhost:5173",
-    "http://localhost:5175"
+    'http://localhost:5174',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5175'
 ]
 
 from fastapi_mail import ConnectionConfig

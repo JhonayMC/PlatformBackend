@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 import os
 
-dotenv_path = r"C:\Users\JHONAY\Desktop\ING. DE SISTEMAS\PLATAFORMA BACKEND\PLATAFORMA_POST_VENTA_BACKEND\.env"
+dotenv_path = r"C:\Users\ING ANGEL\Desktop\Proyecto_MyM_2025\PLATAFORMA_POST_VENTA_BACKEND\.env"
 load_dotenv(dotenv_path, override=True)
 
 print("DB_USER:", os.getenv("DB_USER"))

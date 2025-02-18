@@ -30,7 +30,7 @@ app = FastAPI()
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:5174', 'http://localhost:5173' 'http://localhost:5175'],  # Permite todas las fuentes, puedes especificar dominios específicos
+    allow_origins=['http://localhost:5174', 'http://localhost:5173','http://localhost:5175'],  # Permite todas las fuentes, puedes especificar dominios específicos
     allow_credentials=True,
     allow_methods=["*"],  # Permite todos los métodos HTTP
     allow_headers=["*"],  # Permite todos los encabezados
@@ -105,9 +105,9 @@ def login_simulado(request: LoginSimuladoRequest):
     """
 
     # Simulación de credenciales correctas
-    USUARIO_CORRECTO = "MAX123"
+    USUARIO_CORRECTO = "MSOLANO"
     PASSWORD_CORRECTO = "123456"
-    CIA_CORRECTO = "14"
+    CIA_CORRECTO = "10"
 
     if request.username == USUARIO_CORRECTO and request.password == PASSWORD_CORRECTO and request.cia == CIA_CORRECTO:
         # Simulación de respuesta correcta
