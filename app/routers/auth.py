@@ -272,15 +272,7 @@ def cambiar_contrasena(
     session = SessionLocal()
     try:
         token = credentials.credentials
-        logger.info(f"Solicitud de cambio de contraseña para usuario ID: {request.usuarios_id}")
-
-        query = text("SELECT id FROM POSTVENTA.USUARIOS_TOKENS WHERE usuarios_id = :usuarios_id AND token = :token")
-        token_registrado = session.execute(query, {"usuarios_id": request.usuarios_id, "token": token}).fetchone()
-
-        if not token_registrado:
-            logger.warning("Token inválido o ya eliminado.")
-            return JSONResponse(status_code=401, content={"message": "Token inválido"})
-
+        
         try:
             payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
             usuario_id_token = payload.get("id")
@@ -291,15 +283,20 @@ def cambiar_contrasena(
             logger.warning("Token inválido.")
             return JSONResponse(status_code=401, content={"message": "Token inválido"})
 
-        if usuario_id_token != request.usuarios_id:
-            logger.warning("Intento de cambiar contraseña con un token no autorizado.")
+        logger.info(f"Solicitud de cambio de contraseña para usuario ID: {usuario_id_token}")
+
+        query = text("SELECT id FROM POSTVENTA.USUARIOS_TOKENS WHERE usuarios_id = :usuarios_id AND token = :token")
+        token_registrado = session.execute(query, {"usuarios_id": usuario_id_token, "token": token}).fetchone()
+
+        if not token_registrado:
+            logger.warning("Token inválido o ya eliminado.")
             return JSONResponse(status_code=401, content={"message": "Token inválido"})
 
         query = text("SELECT id, contrasena FROM POSTVENTA.USUARIOS WHERE id = :id AND estado = '1'")
-        usuario = session.execute(query, {"id": request.usuarios_id}).fetchone()
+        usuario = session.execute(query, {"id": usuario_id_token}).fetchone()
 
         if not usuario:
-            logger.warning(f"Usuario con ID {request.usuarios_id} no encontrado o inactivo.")
+            logger.warning(f"Usuario con ID {usuario_id_token} no encontrado o inactivo.")
             return JSONResponse(status_code=422, content={"estado": 422, "mensaje": "No es posible procesar los datos enviados."})
 
         if not verify_password(request.contrasena, usuario[1]):
@@ -312,10 +309,10 @@ def cambiar_contrasena(
 
         nueva_contrasena_hash = hash_password(request.recontrasena)
         update_query = text("UPDATE POSTVENTA.USUARIOS SET contrasena = :nueva_contrasena WHERE id = :id")
-        session.execute(update_query, {"nueva_contrasena": nueva_contrasena_hash, "id": request.usuarios_id})
+        session.execute(update_query, {"nueva_contrasena": nueva_contrasena_hash, "id": usuario_id_token})
         session.commit()
 
-        if not auth_service.eliminar_token_de_bd(token, request.usuarios_id):
+        if not auth_service.eliminar_token_de_bd(token, usuario_id_token):
             return JSONResponse(status_code=500, content={"estado": 500, "mensaje": "No es posible conectarse al servidor."})
 
         return {
