@@ -6,6 +6,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     errores = {}
     traducciones = {
         "Field required": "Campo requerido",
+        "String should have at least 4 characters": "El numero de serie debe ser de 4 caracteres",
+        "String should match pattern '^(JPG|PNG|MP4|PDF|DOC)$'":"Campo requerido"
+
     }
     
     for err in exc.errors():

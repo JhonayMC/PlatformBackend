@@ -6,6 +6,8 @@ from sqlalchemy import text
 from datetime import datetime, timedelta
 import random, string, jwt
 import requests
+from fastapi import BackgroundTasks
+from app.services.auth_service import eliminar_tokens_expirados
 
 from app.models.usuario import (
     UsuarioLogin,
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/api/v1/auth")
 security = HTTPBearer()
 
 @router.post("/iniciar-sesion")
-async def iniciar_sesion(request: Request):
+async def iniciar_sesion(request: Request, background_tasks: BackgroundTasks):
     try:
         data = await request.json()
         errores = {}
@@ -46,6 +48,7 @@ async def iniciar_sesion(request: Request):
                     "mensaje": "No es posible procesar los datos enviados."
                 }
             )
+        background_tasks.add_task(eliminar_tokens_expirados)
 
         if not empresa_id:
             usuario_validado = auth_service.verificar_credenciales(usuario_input, contrasena)

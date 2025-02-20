@@ -4,6 +4,8 @@ from app.utils.security import verify_password, hash_password
 from datetime import datetime
 from app.utils.logger import logger
 from passlib.context import CryptContext
+import jwt
+from app.config import JWT_SECRET_KEY, ALGORITHM
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -128,3 +130,46 @@ def eliminar_token_de_bd(token: str, usuario_id: int):
         return False
     finally:
         session.close()
+
+def eliminar_tokens_expirados():
+    """Elimina los tokens que han caducado en la base de datos."""
+    session = SessionLocal()
+    try:
+        ahora = datetime.utcnow()
+        delete_query = text("""
+            DELETE FROM POSTVENTA.USUARIOS_TOKENS 
+            WHERE expira_el <= :ahora
+        """)
+        session.execute(delete_query, {"ahora": ahora})
+        session.commit()
+        logger.info("Tokens expirados eliminados correctamente.")
+    except Exception as e:
+        logger.error(f"Error al eliminar tokens expirados: {e}")
+    finally:
+        session.close()
+
+def verificar_token(token: str) -> int:
+    """
+    Verifica si el token es válido y devuelve el ID del usuario si es correcto.
+    Si el token es inválido o expirado, devuelve None.
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        usuario_id = payload.get("id")
+        
+        # Verificar si el token aún está almacenado en la base de datos
+        session = SessionLocal()
+        query = text("SELECT id FROM POSTVENTA.USUARIOS_TOKENS WHERE usuarios_id = :usuarios_id AND token = :token")
+        token_registrado = session.execute(query, {"usuarios_id": usuario_id, "token": token}).fetchone()
+        session.close()
+
+        if not token_registrado:
+            return None  # Token no encontrado en la BD, inválido
+        
+        return usuario_id  # Token válido
+
+    except jwt.ExpiredSignatureError:
+        return None  # Token expirado
+    except jwt.InvalidTokenError:
+        return None  # Token inválido
+    
