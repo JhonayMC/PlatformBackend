@@ -189,7 +189,7 @@ CREATE TABLE postventa.reclamos (
 -- Tabla: QUEJAS
 CREATE TABLE postventa.quejas (
     id_queja BIGSERIAL PRIMARY KEY,
-    id_documento BIGINT NOT NULL,
+    id_documento BIGINT NULL,
     usuarios_id BIGINT NOT NULL,
     tipo_usuarios_id BIGINT NOT NULL,
     tipo_queja VARCHAR(20) CHECK (tipo_queja IN ('Producto', 'Servicio')),
@@ -238,8 +238,9 @@ CREATE TABLE postventa.quejas (
 -- Tabla: PRODUCTOS_RECLAMOS
 CREATE TABLE postventa.productos_reclamos (
     id_producto_reclamo BIGSERIAL PRIMARY KEY,
-    id_reclamo BIGINT NOT NULL UNIQUE, -- Solo un producto por reclamo
+    id_reclamo BIGINT NULL UNIQUE, -- Solo un producto por reclamo
     id_producto BIGINT NOT NULL,
+    id_queja BIGINT NULL,
     itm VARCHAR(50),
     lin VARCHAR(50),
     org VARCHAR(50),
@@ -280,4 +281,4 @@ DROP CONSTRAINT IF EXISTS quejas_estado_check;
 
 ALTER TABLE postventa.quejas
 ADD CONSTRAINT quejas_estado_check 
-CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado'));
+CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado', 'Registrada'));

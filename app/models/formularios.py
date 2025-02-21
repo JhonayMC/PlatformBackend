@@ -57,3 +57,44 @@ class ReclamoRequest(BaseModel):
     detalle_reclamo: str
     productos: List[ProductoReclamoRequest]
     archivos: List[ArchivoRequest]
+
+class ProductoRequest(BaseModel):
+    itm: str
+    lin: str
+    org: str
+    marc: str
+    descrp_marc: str
+    fabrica: str
+    articulo: str
+    descripcion: str
+    precio: float
+    cantidad_reclamo: int
+    und_reclamo: str
+
+class QuejaRequest(BaseModel):
+    tipo_queja: str
+    motivo_queja: str
+    descripcion: str
+    cliente_ruc_dni: str
+    dni: str
+    nombres: str
+    apellidos: str
+    email: str
+    telefono: str
+    # Campos opcionales para tipo "Servicio"
+    fecha_queja: Optional[str] = None
+    # Campos opcionales para tipo "Producto"
+    tipo_documento: Optional[str] = None
+    serie: Optional[str] = None
+    correlativo: Optional[str] = None
+    fecha_venta: Optional[str] = None
+    provincia: Optional[str] = None
+    n_interno: Optional[str] = None
+    guia_remision: Optional[str] = None
+    sucursal: Optional[str] = None
+    almacen: Optional[str] = None
+    condicion_pago: Optional[str] = None
+    vendedor: Optional[str] = None
+    transportista: Optional[str] = None
+    productos: Optional[List[ProductoRequest]] = None
+    archivos: List[ArchivoRequest]
