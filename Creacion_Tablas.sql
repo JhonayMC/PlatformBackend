@@ -225,7 +225,7 @@ CREATE TABLE postventa.quejas (
     apellido VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     telefono VARCHAR(15) NOT NULL,
-    estado VARCHAR(20) CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede')),
+    estado VARCHAR(20) CHECK (estado IN ('Registrada','Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede')),
     clasificacion_venta VARCHAR(100),
     potencial_venta VARCHAR(100),
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -267,18 +267,3 @@ CREATE TABLE postventa.archivos (
     CONSTRAINT fk_archivos_quejas FOREIGN KEY (id_queja) REFERENCES postventa.quejas(id_queja)
 );
 
--- Modify estado constraint in RECLAMOS table
-ALTER TABLE postventa.reclamos 
-DROP CONSTRAINT IF EXISTS reclamos_estado_check;
-
-ALTER TABLE postventa.reclamos
-ADD CONSTRAINT reclamos_estado_check 
-CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado'));
-
--- Modify estado constraint in QUEJAS table
-ALTER TABLE postventa.quejas 
-DROP CONSTRAINT IF EXISTS quejas_estado_check;
-
-ALTER TABLE postventa.quejas
-ADD CONSTRAINT quejas_estado_check 
-CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado', 'Registrada'));

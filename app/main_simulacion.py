@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from passlib.context import CryptContext
@@ -13,6 +13,9 @@ import jwt
 import requests
 import os
 import sys
+import re
+from dotenv import load_dotenv
+load_dotenv()
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.db_connection_simulacion import get_engine
@@ -23,6 +26,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
+
 
 # Configuración de FastAPI
 app = FastAPI()
@@ -129,5 +133,172 @@ def login_simulado(request: LoginSimuladoRequest):
         "status": 401,
         "data": None
     }
+
+#Api de Simulación para buscar la data de un documento
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
+from typing import Optional
+import re
+
+app = FastAPI()
+
+# Datos simulados predefinidos en una estructura de diccionario
+simulated_docs = {
+    "BOLETA": {
+        "B001-12345678": {
+            "documento": "B001-12345678",
+            "tipo_documento": "BOLETA",
+            "fechaventa": "2025-01-01",
+            "nrointerno": "B1234",
+            "guiaremision": "G001-12345678",
+            "condicionpago": "Contado",
+            "vendedor": "Vendedor Boleta",
+            "departamento": "Lima",
+            "sucursal": "Sucursal Boleta",
+            "almacen": "Almacén Boleta",
+            "transportista": "Transportista Boleta"
+        }
+    },
+    "FACTURA": {
+        "F001-87654321": {
+            "documento": "F001-87654321",
+            "tipo_documento": "FACTURA",
+            "fechaventa": "2025-01-02",
+            "nrointerno": "F5678",
+            "guiaremision": "G001-87654321",
+            "condicionpago": "Crédito",
+            "vendedor": "Vendedor Factura",
+            "departamento": "Arequipa",
+            "sucursal": "Sucursal Factura",
+            "almacen": "Almacén Factura",
+            "transportista": "Transportista Factura"
+        }
+    },
+    "NOTA DE VENTA": {
+        "1234567": {
+            "documento": "1234567",
+            "tipo_documento": "NOTA DE VENTA",
+            "fechaventa": "2025-01-03",
+            "nrointerno": "NV9012",
+            "guiaremision": "G001-1234567",
+            "condicionpago": "Efectivo",
+            "vendedor": "Vendedor NV",
+            "departamento": "Cusco",
+            "sucursal": "Sucursal NV",
+            "almacen": "Almacén NV",
+            "transportista": "Transportista NV"
+        }
+    }
+}
+
+@app.get("/api/v1/buscar-documento")
+async def buscar_documento(
+    tipo_documento: int = Query(..., description="1 para BOLETA, 2 para FACTURA, 3 para NOTA DE VENTA"),
+    serie: Optional[str] = Query("", description="Serie para BOLETA o FACTURA. No se utiliza para NOTA DE VENTA"),
+    correlativo: str = Query(...)
+):
+    """
+    Endpoint para buscar documento con datos simulados.
+
+    Validaciones:
+      - BOLETA (tipo_documento=1) y FACTURA (tipo_documento=2):
+          * La serie es obligatoria y debe contener exactamente 4 caracteres alfanuméricos.
+          * El correlativo debe contener exactamente 8 dígitos.
+      - NOTA DE VENTA (tipo_documento=3):
+          * No se debe enviar serie (debe estar vacío).
+          * El correlativo debe contener exactamente 7 dígitos.
+    """
+    # Validación para BOLETA y FACTURA
+    if tipo_documento in [1, 2]:
+        if not serie or not re.fullmatch(r'[A-Za-z0-9]{4}', serie.strip()):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {
+                        "serie": [
+                            "Para BOLETA o FACTURA, la serie es obligatoria y debe contener exactamente 4 caracteres alfanuméricos."
+                        ]
+                    },
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        if not re.fullmatch(r'\d{8}', correlativo):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {
+                        "correlativo": [
+                            "Para BOLETA o FACTURA, el correlativo debe contener exactamente 8 dígitos."
+                        ]
+                    },
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        key = f"{serie}-{correlativo}"
+        doc_type = "BOLETA" if tipo_documento == 1 else "FACTURA"
+    # Validación para NOTA DE VENTA
+    elif tipo_documento == 3:
+        if serie and serie.strip() != "":
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {
+                        "serie": [
+                            "Para NOTA DE VENTA, no se debe enviar serie."
+                        ]
+                    },
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        if not re.fullmatch(r'\d{7}', correlativo):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {
+                        "correlativo": [
+                            "Para NOTA DE VENTA, el correlativo debe contener exactamente 7 dígitos."
+                        ]
+                    },
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        key = correlativo
+        doc_type = "NOTA DE VENTA"
+    else:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "errores": {
+                    "tipo_documento": [
+                        "Tipo de documento no reconocido. Use 1 para BOLETA, 2 para FACTURA o 3 para NOTA DE VENTA."
+                    ]
+                },
+                "estado": 422,
+                "mensaje": "No es posible procesar los datos enviados."
+            }
+        )
+
+    # Buscar en la data simulada según el tipo de documento y la clave construida
+    documento_info = simulated_docs.get(doc_type, {}).get(key)
+    if not documento_info:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "errores": {
+                    "documento": [
+                        f"No existe documento con { 'serie y correlativo' if tipo_documento in [1,2] else 'correlativo' } especificado."
+                    ]
+                },
+                "estado": 422,
+                "mensaje": "No es posible procesar los datos enviados."
+            }
+        )
+
+    return JSONResponse(content={"data": documento_info})
+
 
 

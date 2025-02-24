@@ -211,4 +211,15 @@ Pasar el token generado al inicar sesión
     ]
 }
 
+API SIMULADA DE BUSCAR DOCUMENTO
+
+1. Para Boleta
+http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=1&serie=B001&correlativo=12345678
+
+2. Para factura
+http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=2&serie=F001&correlativo=87654321
+
+3. Para Nota de Venta
+http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=3&correlativo=1234567
+
 
