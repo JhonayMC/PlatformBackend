@@ -23,7 +23,7 @@ class ProductoReclamoRequest(BaseModel):
 
 # Modelo principal para guardar reclamos
 class ReclamoRequest(BaseModel):
-    tipo_documento: str = Field(..., pattern="^(Factura|Boleta|Nota de Venta)$")  # Cambio aquí
+    tipo_correlativos_id: int    
     serie: Optional[str] = Field(None, min_length=4, max_length=4)
     correlativo: str = Field(..., min_length=7, max_length=8)
     fecha_venta: date
@@ -47,8 +47,6 @@ class ReclamoRequest(BaseModel):
     modelo_motor: Optional[str]
     anio: Optional[int]
     tipo_operacion: str
-    clasificacion_venta: Optional[str]
-    potencial_venta: Optional[str]
     fecha_instalacion: Optional[date]
     horas_uso_reclamo: Optional[int]
     km_instalacion: Optional[int]
@@ -81,10 +79,11 @@ class QuejaRequest(BaseModel):
     apellidos: str
     email: str
     telefono: str
+    #tipog: str
     # Campos opcionales para tipo "Servicio"
     fecha_queja: Optional[str] = None
     # Campos opcionales para tipo "Producto"
-    tipo_documento: Optional[str] = None
+    tipo_correlativos_id: Optional[int] = None
     serie: Optional[str] = None
     correlativo: Optional[str] = None
     fecha_venta: Optional[str] = None
