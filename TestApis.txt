@@ -74,32 +74,30 @@ Pasar el token generado al inicar sesión
 
 Body:
 {
-    "tipo_documento": "Boleta",
-    "serie": "1234",
-    "correlativo": "12345678",
+    "tipo_correlativos_id": "2",
+    "serie": "4321",
+    "correlativo": "12345672",
     "fecha_venta": "2024-02-20",
-    "provincia": "Lima",
-    "n_interno": "INT-001",
-    "guia_remision": "GR-123456",
-    "sucursal": "Sucursal Lima",
-    "almacen": "Almacén Central",
-    "condicion_pago": "Crédito",
-    "vendedor": "Jose Vasquez",
+    "provincia": "Ica",
+    "n_interno": "INT-002",
+    "guia_remision": "GR-564123",
+    "sucursal": "Sucursal Ica",
+    "almacen": "Almacén Provincia",
+    "condicion_pago": "Contado",
+    "vendedor": "Luis Jose Suarez",
     "transportista": "Transporte Rápido",
-    "cliente_ruc_dni": "20123456789",
-    "dni": "12345678",
-    "nombres": "Carlos",
-    "apellidos": "Gómez",
-    "email": "carlos.gomez@example.com",
+    "cliente_ruc_dni": "20123456669",
+    "dni": "45612398",
+    "nombres": "Jose",
+    "apellidos": "Lito",
+    "email": "JoseLito@example.com",
     "telefono": "987654321",
     "placa_vehiculo": "XYZ123",
-    "modelo_vehiculo": "Toyota Yaris",
+    "modelo_vehiculo": "Toyota Corolla",
     "marca": "Toyota",
     "modelo_motor": "1.8L VVT-i",
     "anio": 2023,
     "tipo_operacion": "Transporte de carga",
-    "clasificacion_venta": "Cliente frecuente",
-    "potencial_venta": "Alto",
     "fecha_instalacion": "2024-02-10",
     "horas_uso_reclamo": 500,
     "km_instalacion": 10000,
@@ -108,13 +106,13 @@ Body:
     "detalle_reclamo": "El motor presenta fallas en el arranque",
     "productos": [
         {
-            "itm": "",
-            "lin": "Línea A",
+            "itm": "004",
+            "lin": "Línea C",
             "org": "Org1",
-            "marc": "MarcaX",
-            "descrp_marc": "Descripción MarcaX",
-            "fabrica": "Fábrica B",
-            "articulo": "Artículo123",
+            "marc": "MarcaY",
+            "descrp_marc": "Descripción MarcaY",
+            "fabrica": "Fábrica C",
+            "articulo": "Artículo124",
             "descripcion": "Motor defectuoso",
             "precio": 2500.50,
             "cantidad_reclamo": 1,
@@ -123,7 +121,7 @@ Body:
     ],
     "archivos": [
         {
-            "archivo_url": "https://example.com/imagen1.jpg",
+            "archivo_url": "https://example.com/imagen11.jpg",
             "tipo_archivo": "JPG"
         }
     ]
@@ -138,8 +136,8 @@ Pasar el token generado al inicar sesión
 
 {
     "tipo_queja": "Producto",
-    "motivo_queja": "Cantidad",
-    "tipo_documento": "Nota de Venta",
+    "motivo_queja":"Cantidad",
+    "tipo_correlativos_id": "1",
     "serie": "1234",
     "correlativo": "12345678",
     "fecha_venta": "2024-02-20",
@@ -159,7 +157,7 @@ Pasar el token generado al inicar sesión
     "telefono": "987654321",
     "productos": [
         {
-            "itm": "",
+            "itm": "005",
             "lin": "Línea A",
             "org": "Org1",
             "marc": "MarcaX",
@@ -195,10 +193,10 @@ Pasar el token generado al inicar sesión
     "descripcion": "Falta de productos en almacén",
     "cliente_ruc_dni": "20123456789",
     "dni": "12345678",
-    "nombres": "Jesus",
-    "apellidos": "Roman",
-    "email": "carlos.gomez@example.com",
-    "telefono": "987654321",
+    "nombres": "Romann",
+    "apellidos": "Rodriguez",
+    "email": "romarodriguez@example.com",
+    "telefono": "987654320",
     "archivos": [
         {
             "archivo_url": "https://example.com/evidencia1.jpg",
@@ -210,6 +208,7 @@ Pasar el token generado al inicar sesión
         }
     ]
 }
+
 
 API SIMULADA DE BUSCAR DOCUMENTO
 
