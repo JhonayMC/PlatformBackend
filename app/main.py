@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, formularios
+from app.routers import auth, formularios, front
 from app.config import CORS_ORIGINS
 from fastapi.exceptions import RequestValidationError
 from app.exception_handlers import validation_exception_handler
@@ -23,3 +23,4 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(formularios.router)
+app.include_router(front.router)

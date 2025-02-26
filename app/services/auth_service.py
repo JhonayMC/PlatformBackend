@@ -1,13 +1,17 @@
 from sqlalchemy import text
 from app.db.connection import SessionLocal
 from app.utils.security import verify_password, hash_password
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime
 from app.utils.logger import logger
 from passlib.context import CryptContext
-import jwt
+from jose import jwt, JWTError
+from starlette.responses import JSONResponse
+from fastapi import FastAPI, Depends
 from app.config import JWT_SECRET_KEY, ALGORITHM
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
 
 def verificar_credenciales(usuario_input: str, contrasena: str):
     session = SessionLocal()
@@ -172,4 +176,14 @@ def verificar_token(token: str) -> int:
         return None  # Token expirado
     except jwt.InvalidTokenError:
         return None  # Token inválido
-    
+
+# Función para validar token
+def validar_token(credenciales: HTTPAuthorizationCredentials = Depends(security)):
+    token = credenciales.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        return payload  # Si el token es válido, se devuelve el payload
+    except jwt.ExpiredSignatureError:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+    except jwt.JWTError:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
