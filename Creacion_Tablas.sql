@@ -178,7 +178,6 @@ CREATE TABLE postventa.reclamos (
     clasificacion_venta VARCHAR(100),
     potencial_venta VARCHAR(100),
     producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
-    precio DECIMAL(10,2),
     fecha_instalacion DATE,
     horas_uso_reclamo INT,
     km_instalacion INT,
@@ -222,6 +221,7 @@ CREATE TABLE postventa.quejas (
         ))
     ),
     fecha_queja DATE,
+    fecha_venta DATE,
     descripcion TEXT NOT NULL,
     cliente_ruc_dni VARCHAR(11) NOT NULL,
     dni_solicitante VARCHAR(8) NOT NULL,
@@ -233,7 +233,6 @@ CREATE TABLE postventa.quejas (
     clasificacion_venta VARCHAR(100),
     potencial_venta VARCHAR(100),
     producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
-    precio DECIMAL(10,2),
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_quejas_documentos FOREIGN KEY (documento_id) REFERENCES postventa.documentos(id_documento),

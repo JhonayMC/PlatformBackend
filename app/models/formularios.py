@@ -17,7 +17,7 @@ class ProductoReclamoRequest(BaseModel):
     fabrica: str
     articulo: str
     descripcion: str
-    precio: float
+    precio: Optional[float] = None
     cantidad_reclamo: int
     und_reclamo: str
 
@@ -41,6 +41,9 @@ class ReclamoRequest(BaseModel):
     apellidos: str
     email: str
     telefono: str
+    clasificacion_venta: Optional[str] = None  
+    potencial_venta: Optional[str] = None  
+    producto_tienda: Optional[str] = None  
     placa_vehiculo: Optional[str]
     modelo_vehiculo: Optional[str]
     marca: Optional[str]
@@ -65,7 +68,7 @@ class ProductoRequest(BaseModel):
     fabrica: str
     articulo: str
     descripcion: str
-    precio: float
+    precio: Optional[float] = None
     cantidad_reclamo: int
     und_reclamo: str
 
@@ -79,6 +82,9 @@ class QuejaRequest(BaseModel):
     apellidos: str
     email: str
     telefono: str
+    clasificacion_venta: Optional[str] = None  
+    potencial_venta: Optional[str] = None  
+    producto_tienda: Optional[str] = None  
     #tipog: str
     # Campos opcionales para tipo "Servicio"
     fecha_queja: Optional[str] = None

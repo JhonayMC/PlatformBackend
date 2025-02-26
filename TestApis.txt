@@ -126,6 +126,63 @@ Body:
         }
     ]
 }
+CUANDO SON TRABAJADORES:
+{
+    "tipo_correlativos_id": "2",
+    "serie": "4321",
+    "correlativo": "12345672",
+    "fecha_venta": "2024-02-20",
+    "provincia": "Ica",
+    "n_interno": "INT-002",
+    "guia_remision": "GR-564123",
+    "sucursal": "Sucursal Ica",
+    "almacen": "Almacén Provincia",
+    "condicion_pago": "Contado",
+    "vendedor": "Luis Jose Suarez",
+    "transportista": "Transporte Rápido",
+    "cliente_ruc_dni": "20123456669",
+    "dni": "45612398",
+    "nombres": "Jose",
+    "apellidos": "Lito",
+    "email": "JoseLito@example.com",
+    "telefono": "987654321",
+    "clasificacion_venta": "XXXY",
+    "potencial_venta": "informacion",
+    "producto_tienda": "S",
+    "placa_vehiculo": "XYZ123",
+    "modelo_vehiculo": "Toyota Corolla",
+    "marca": "Toyota",
+    "modelo_motor": "1.8L VVT-i",
+    "anio": 2023,
+    "tipo_operacion": "Transporte de carga",
+    "fecha_instalacion": "2024-02-10",
+    "horas_uso_reclamo": 500,
+    "km_instalacion": 10000,
+    "km_actual": 15000,
+    "km_recorridos": 5000,
+    "detalle_reclamo": "El motor presenta fallas en el arranque",
+    "productos": [
+        {
+            "itm": "004",
+            "lin": "Línea C",
+            "org": "Org1",
+            "marc": "MarcaY",
+            "descrp_marc": "Descripción MarcaY",
+            "fabrica": "Fábrica C",
+            "articulo": "Artículo124",
+            "descripcion": "Motor defectuoso",
+            "precio": 2500.50,
+            "cantidad_reclamo": 1,
+            "und_reclamo": "Unidad"
+        }
+    ],
+    "archivos": [
+        {
+            "archivo_url": "https://example.com/imagen11.jpg",
+            "tipo_archivo": "JPG"
+        }
+    ]
+}
 
 
 QUEJAS
@@ -179,6 +236,55 @@ Pasar el token generado al inicar sesión
     ]
 }
 
+CUANDO SON TRABAJADORES:
+{
+    "tipo_queja": "Producto",
+    "motivo_queja":"Cantidad",
+    "tipo_correlativos_id": "1",
+    "serie": "1234",
+    "correlativo": "12345678",
+    "fecha_venta": "2024-02-20",
+    "provincia": "Lima",
+    "n_interno": "INT-001",
+    "guia_remision": "GR-123456",
+    "sucursal": "Sucursal Lima",
+    "almacen": "Almacen Central",
+    "condicion_pago": "Contado",
+    "vendedor": "Jose Vasquez",
+    "transportista": "Transporte Rapido",
+    "cliente_ruc_dni": "20123456789",
+    "dni": "12345678",
+    "nombres": "Carlos",
+    "apellidos": "Gómez",
+    "email": "carlos.gomez@example.com",
+    "telefono": "987654321",
+    "clasificacion_venta": "YZYZ",
+    "potencial_venta": "informacion",
+    "producto_tienda": "N",
+    "productos": [
+        {
+            "itm": "007",
+            "lin": "Línea B",
+            "org": "Org1",
+            "marc": "MarcaX",
+            "descrp_marc": "Descripción MarcaX",
+            "fabrica": "Fábrica B",
+            "articulo": "Articulo123",
+            "descripcion": "Motor defectuoso",
+            "precio": 2500.50,
+            "cantidad_reclamo": 1,
+            "und_reclamo": "Unidad"
+        }
+    ],
+    "descripcion": "El motor presenta fallas en el arranque",
+    "archivos": [
+        {
+            "archivo_url": "https://example.com/imagen_producto.jpg",
+            "tipo_archivo": "JPG"
+        }
+    ]
+}
+
 
 QUEJAS
 1. Por servicio
@@ -209,16 +315,42 @@ Pasar el token generado al inicar sesión
     ]
 }
 
+CUANDO SON TRABAJADORES:
+{
+    "tipo_queja": "Servicio",
+    "motivo_queja": "Desabasto",
+    "fecha_queja": "2024-02-26",
+    "descripcion": "Falta de productos en almacén",
+    "cliente_ruc_dni": "20123456789",
+    "dni": "12345678",
+    "nombres": "Romann",
+    "apellidos": "Rodriguez",
+    "email": "romarodriguez@example.com",
+    "telefono": "987654320",
+    "clasificacion_venta": "YZYZ",
+    "potencial_venta": "informacion",
+    "archivos": [
+        {
+            "archivo_url": "https://example.com/evidencia1.jpg",
+            "tipo_archivo": "JPG"
+        },
+        {
+            "archivo_url": "https://example.com/evidencia2.pdf",
+            "tipo_archivo": "PDF"
+        }
+    ]
+}
+
 
 API SIMULADA DE BUSCAR DOCUMENTO
 
 1. Para Boleta
-http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=1&serie=B001&correlativo=12345678
+http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=1&serie=B001&correlativo=12345678
 
 2. Para factura
-http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=2&serie=F001&correlativo=87654321
+http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=2&serie=F001&correlativo=87654321
 
 3. Para Nota de Venta
-http://127.0.0.1:8002/api/v1/buscar-documento?tipo_documento=3&correlativo=1234567
+http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=3&correlativo=1234567
 
 
