@@ -97,3 +97,52 @@ class QuejaRequest(BaseModel):
     transportista: Optional[str] = None
     productos: Optional[List[ProductoRequest]] = None
     archivos: List[ArchivoRequest]
+
+# Datos simulados predefinidos en una estructura de diccionario
+simulated_docs = {
+    "BOLETA": {
+        "B001-12345678": {
+            "documento": "B001-12345678",
+            "tipo_documento": "BOLETA",
+            "fechaventa": "2025-01-01",
+            "nrointerno": "B1234",
+            "guiaremision": "G001-12345678",
+            "condicionpago": "Contado",
+            "vendedor": "Vendedor Boleta",
+            "departamento": "Lima",
+            "sucursal": "Sucursal Boleta",
+            "almacen": "Almacén Boleta",
+            "transportista": "Transportista Boleta"
+        }
+    },
+    "FACTURA": {
+        "F001-87654321": {
+            "documento": "F001-87654321",
+            "tipo_documento": "FACTURA",
+            "fechaventa": "2025-01-02",
+            "nrointerno": "F5678",
+            "guiaremision": "G001-87654321",
+            "condicionpago": "Crédito",
+            "vendedor": "Vendedor Factura",
+            "departamento": "Arequipa",
+            "sucursal": "Sucursal Factura",
+            "almacen": "Almacén Factura",
+            "transportista": "Transportista Factura"
+        }
+    },
+    "NOTA DE VENTA": {
+        "1234567": {
+            "documento": "1234567",
+            "tipo_documento": "NOTA DE VENTA",
+            "fechaventa": "2025-01-03",
+            "nrointerno": "NV9012",
+            "guiaremision": "G001-1234567",
+            "condicionpago": "Efectivo",
+            "vendedor": "Vendedor NV",
+            "departamento": "Cusco",
+            "sucursal": "Sucursal NV",
+            "almacen": "Almacén NV",
+            "transportista": "Transportista NV"
+        }
+    }
+}

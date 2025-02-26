@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
-from app.models.formularios import ReclamoRequest, QuejaRequest
+from app.models.formularios import ReclamoRequest, QuejaRequest, simulated_docs 
 from app.db.connection import SessionLocal
 from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
+from fastapi.responses import JSONResponse
+from typing import Optional
+import re
+
 
 router = APIRouter(prefix="/api/v1")
 security = HTTPBearer()
@@ -438,4 +442,86 @@ def registrar_queja(
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
 
-        
+@router.get("/buscar-documento")
+async def buscar_documento(
+    tipo_documento: int = Query(..., description="1 para BOLETA, 2 para FACTURA, 3 para NOTA DE VENTA"),
+    serie: Optional[str] = Query("", description="Serie para BOLETA o FACTURA. No se utiliza para NOTA DE VENTA"),
+    correlativo: str = Query(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    # Validar token
+    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_token = db.execute(query_token, {"token": token}).fetchone()
+
+    if not result_token:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+    # Validaciones de tipo de documento
+    if tipo_documento in [1, 2]:  # BOLETA o FACTURA
+        if not serie or not re.fullmatch(r'[A-Za-z0-9]{4}', serie.strip()):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {"serie": ["Para BOLETA o FACTURA, la serie es obligatoria y debe contener exactamente 4 caracteres alfanuméricos."]},
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        if not re.fullmatch(r'\d{8}', correlativo):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {"correlativo": ["Para BOLETA o FACTURA, el correlativo debe contener exactamente 8 dígitos."]},
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        key = f"{serie}-{correlativo}"
+        doc_type = "BOLETA" if tipo_documento == 1 else "FACTURA"
+    elif tipo_documento == 3:  # NOTA DE VENTA
+        if serie and serie.strip() != "":
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {"serie": ["Para NOTA DE VENTA, no se debe enviar serie."]},
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        if not re.fullmatch(r'\d{7}', correlativo):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errores": {"correlativo": ["Para NOTA DE VENTA, el correlativo debe contener exactamente 7 dígitos."]},
+                    "estado": 422,
+                    "mensaje": "No es posible procesar los datos enviados."
+                }
+            )
+        key = correlativo
+        doc_type = "NOTA DE VENTA"
+    else:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "errores": {"tipo_documento": ["Tipo de documento no reconocido. Use 1 para BOLETA, 2 para FACTURA o 3 para NOTA DE VENTA."]},
+                "estado": 422,
+                "mensaje": "No es posible procesar los datos enviados."
+            }
+        )
+
+    # Buscar en la data simulada según el tipo de documento y la clave construida
+    documento_info = simulated_docs.get(doc_type, {}).get(key)
+    if not documento_info:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "errores": {"documento": [f"No existe documento con {'serie y correlativo' if tipo_documento in [1,2] else 'correlativo'} especificado."]},
+                "estado": 422,
+                "mensaje": "No es posible procesar los datos enviados."
+            }
+        )
+
+    return JSONResponse(content={"data": documento_info})
