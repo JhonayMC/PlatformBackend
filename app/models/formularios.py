@@ -139,6 +139,50 @@ simulated_docs = {
                 "fabrica": "Fabrica 1",
                 "articulo": "Articulo 1",
                 "cantidad": 1
+            },
+            {
+                "codigo": "P002",
+                "nombre": "Smartphone Samsung Galaxy",
+                "linea": "Electrónica",
+                "organizacion": "Samsung Electronics",
+                "marca": "Samsung",
+                "marca_desc": "Tecnología de vanguardia",
+                "fabrica": "Samsung Vietnam",
+                "articulo": "SM-G110",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P003",
+                "nombre": "Zapatillas Deportivas Nike",
+                "linea": "Calzado",
+                "organizacion": "Nike Inc.",
+                "marca": "Nike",
+                "marca_desc": "Calidad deportiva premium",
+                "fabrica": "Nike Indonesia",
+                "articulo": "NK-ZD450",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P004",
+                "nombre": "Laptop HP Pavilion",
+                "linea": "Computación",
+                "organizacion": "HP Inc.",
+                "marca": "HP",
+                "marca_desc": "Tecnología confiable",
+                "fabrica": "HP China",
+                "articulo": "HP-LT220",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P005",
+                "nombre": "Refrigerador LG",
+                "linea": "Electrodomésticos",
+                "organizacion": "LG Electronics",
+                "marca": "LG",
+                "marca_desc": "Innovación para el hogar",
+                "fabrica": "LG Corea",
+                "articulo": "LG-RF345",
+                "cantidad": 1
             }
         ]
     },
@@ -159,15 +203,59 @@ simulated_docs = {
         },
         "productos": [
             {
-                "codigo": "P002",
-                "nombre": "Producto 2",
-                "linea": "Linea 2",
-                "organizacion": "Organización 2",
-                "marca": "Marca 2",
-                "marca_desc": "Descripción Marca 2",
-                "fabrica": "Fabrica 2",
-                "articulo": "Articulo 2",
-                "cantidad": 2
+                "codigo": "P101",
+                "nombre": "Impresora Multifuncional Canon",
+                "linea": "Oficina",
+                "organizacion": "Canon Inc.",
+                "marca": "Canon",
+                "marca_desc": "Tecnología japonesa de precisión",
+                "fabrica": "Canon Tailandia",
+                "articulo": "CN-MP450",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P102",
+                "nombre": "Escritorio Ejecutivo",
+                "linea": "Mobiliario",
+                "organizacion": "Muebles Modernos",
+                "marca": "OfficePro",
+                "marca_desc": "Mobiliario empresarial premium",
+                "fabrica": "Maderas Finas Perú",
+                "articulo": "ES-EJ320",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P103",
+                "nombre": "Monitor LG UltraWide",
+                "linea": "Computación",
+                "organizacion": "LG Electronics",
+                "marca": "LG",
+                "marca_desc": "Calidad de imagen superior",
+                "fabrica": "LG México",
+                "articulo": "LG-MU340",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P104",
+                "nombre": "Silla Ergonómica",
+                "linea": "Mobiliario",
+                "organizacion": "ErgoDesign",
+                "marca": "ComfortPlus",
+                "marca_desc": "Ergonomía avanzada",
+                "fabrica": "ErgoDesign Brasil",
+                "articulo": "CP-SE550",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P105",
+                "nombre": "Proyector Epson",
+                "linea": "Audiovisuales",
+                "organizacion": "Epson Corporation",
+                "marca": "Epson",
+                "marca_desc": "Proyección de alta definición",
+                "fabrica": "Epson Indonesia",
+                "articulo": "EP-PR750",
+                "cantidad": 1
             }
         ]
     },
@@ -188,15 +276,59 @@ simulated_docs = {
         },
         "productos": [
             {
-                "codigo": "P003",
-                "nombre": "Producto 3",
-                "linea": "Linea 3",
-                "organizacion": "Organización 3",
-                "marca": "Marca 3",
-                "marca_desc": "Descripción Marca 3",
-                "fabrica": "Fabrica 3",
-                "articulo": "Articulo 3",
-                "cantidad": 3
+                "codigo": "P201",
+                "nombre": "Mochila Escolar",
+                "linea": "Escolar",
+                "organizacion": "BackpackPro",
+                "marca": "SchoolPlus",
+                "marca_desc": "Materiales resistentes",
+                "fabrica": "TextilPro Perú",
+                "articulo": "ME-320",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P202",
+                "nombre": "Juego de Cuadernos",
+                "linea": "Papelería",
+                "organizacion": "PapelMax",
+                "marca": "NotePro",
+                "marca_desc": "Papel de alta calidad",
+                "fabrica": "PapelMax Colombia",
+                "articulo": "NP-JC100",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P203",
+                "nombre": "Bicicleta Montañera",
+                "linea": "Deportes",
+                "organizacion": "BikeMaster",
+                "marca": "MountainPro",
+                "marca_desc": "Alto rendimiento en terreno",
+                "fabrica": "BikeMaster Taiwan",
+                "articulo": "MP-B450",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P204",
+                "nombre": "Cafetera Eléctrica",
+                "linea": "Electrodomésticos",
+                "organizacion": "HomeAppliances",
+                "marca": "CoffeeMaster",
+                "marca_desc": "Preparación perfecta",
+                "fabrica": "HomeApp China",
+                "articulo": "CM-CE120",
+                "cantidad": 1
+            },
+            {
+                "codigo": "P205",
+                "nombre": "Juego de Ollas",
+                "linea": "Hogar",
+                "organizacion": "KitchenPro",
+                "marca": "CookMaster",
+                "marca_desc": "Acero inoxidable premium",
+                "fabrica": "KitchenPro Brasil",
+                "articulo": "CM-JO500",
+                "cantidad": 1
             }
         ]
     }
