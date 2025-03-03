@@ -353,4 +353,10 @@ http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=2&serie=F001&correl
 3. Para Nota de Venta
 http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=3&correlativo=1234567
 
+Para el FRONT:
+
+http://127.0.0.1:8001/api/v1/motivos?tipo=producto
+http://127.0.0.1:8001/api/v1/motivos?tipo=servicio
+http://127.0.0.1:8001/api/v1/tipo-correlativos
+http://127.0.0.1:8001/api/v1/tipo-operaciones
 

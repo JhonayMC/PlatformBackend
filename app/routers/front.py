@@ -2,10 +2,21 @@ from fastapi import FastAPI, Depends, APIRouter, HTTPException, Header
 from starlette.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 import jwt
+from app.db.connection import SessionLocal
+
 
 router = APIRouter(prefix="/api/v1")
 app = FastAPI()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Función personalizada para validar token a partir del encabezado Authorization
 async def get_token(authorization: str = Header(None)):
@@ -38,58 +49,77 @@ def validar_token_directo(token: str):
         raise Exception("Token inválido")
 
 @router.get("/tipo-correlativos")
-def obtener_tipo_correlativos(token = Depends(get_token)):
-    # Si token es un JSONResponse, lo retornamos (error 401)
+def obtener_tipo_correlativos(db: Session = Depends(get_db), token=Depends(get_token)):
     if isinstance(token, JSONResponse):
         return token
-        
-    return [
-        {"id": 1, "nombre": "Boleta"},
-        {"id": 2, "nombre": "Factura"},
-        {"id": 3, "nombre": "Nota de Venta"},
-    ]
+
+    query = text("SELECT id, nombre FROM postventa.tipo_correlativos")
+    result = db.execute(query).fetchall()
+
+    return [{"id": row[0], "nombre": row[1]} for row in result]
 
 @router.get("/tipo-operaciones")
-def obtener_tipo_operaciones(token = Depends(get_token)):
+def obtener_tipo_operaciones(db: Session = Depends(get_db), token=Depends(get_token)):
     if isinstance(token, JSONResponse):
         return token
-        
-    return [
-        {"id": 1, "nombre": "Transporte de Carga"},
-        {"id": 2, "nombre": "Transporte de Pasajeros"},
-        {"id": 3, "nombre": "Construcción"},
-        {"id": 4, "nombre": "Minería"},
-        {"id": 5, "nombre": "Agrícola"},
-    ]
+
+    query = text("SELECT id, nombre FROM postventa.tipo_operaciones")
+    result = db.execute(query).fetchall()
+
+    return [{"id": row[0], "nombre": row[1]} for row in result]
 
 @router.get("/motivos")
-def obtener_motivos(tipo: str, token = Depends(get_token)):
+def obtener_motivos(tipo: str, db: Session = Depends(get_db), token=Depends(get_token)):
     if isinstance(token, JSONResponse):
         return token
-        
+
     if tipo == "producto":
-        return [
-            {"id": 1, "nombre": "Datos mal consignados (razón social, RUC, destino)"},
-            {"id": 2, "nombre": "Doble Facturación"},
-            {"id": 3, "nombre": "Precio"},
-            {"id": 4, "nombre": "Cantidad"},
-            {"id": 5, "nombre": "Producto no solicitado"},
-            {"id": 6, "nombre": "Marca errada"},
-            {"id": 7, "nombre": "Código errado"},
-            {"id": 8, "nombre": "Empaque/repuesto en mal estado"},
-            {"id": 9, "nombre": "Mercadería sin empaque de marca"},
-            {"id": 10, "nombre": "Repuesto incompleto"},
-            {"id": 11, "nombre": "Repuesto diferente a la muestra/original"},
-        ]
+        query = text("SELECT id, nombre FROM postventa.motivos_producto")
     elif tipo == "servicio":
-        return [
-            {"id": 1, "nombre": "Mala atención del Cliente"},
-            {"id": 2, "nombre": "Personal de M&M"},
-            {"id": 3, "nombre": "Demora en la atención"},
-            {"id": 4, "nombre": "Ambiente"},
-            {"id": 5, "nombre": "Demora en la entrega de productos"},
-            {"id": 6, "nombre": "Desabasto"},
-            {"id": 7, "nombre": "Falta de información"},
-        ]
+        query = text("SELECT id, nombre FROM postventa.motivos_servicio")
     else:
         return JSONResponse(status_code=400, content={"estado": 400, "mensaje": "Tipo de motivo no válido"})
+
+    result = db.execute(query).fetchall()
+    return [{"id": row[0], "nombre": row[1]} for row in result]
+    
+@router.get("/buscar-dni/{dni}")
+def buscar_placa(dni: str, token=Depends(get_token)):
+    if isinstance(token, JSONResponse):
+        return token  # Retorna error 401 si el token es inválido
+
+    # Datos simulados de clientes
+    data_clientes = {
+        "12345678": {"nombres": "Jose Alberto", "apellidos":"Perez Roman"},
+        "12345600": {"nombres": "Jeferson", "apellidos":"Vega Salazar"},
+        "87654321": {"nombres": "Maria", "apellidos":"Gonzalez Ramirez"}
+    } 
+
+    # Buscar cliente en el diccionario de datos simulados
+    cliente = data_clientes.get(dni.upper())
+
+    if cliente:
+        return JSONResponse(status_code=200, content={"estado": 200, "data": cliente})
+    else:
+        return JSONResponse(status_code=404, content={"estado": 422, "mensaje": "Placa no encontrada"})
+    
+@router.get("/buscar-placa/{placa}")
+def buscar_placa(placa: str, token=Depends(get_token)):
+    if isinstance(token, JSONResponse):
+        return token  # Retorna error 401 si el token es inválido
+
+    # Datos simulados de vehículos
+    data_vehiculos = {
+        "1F5E74": {"marca": "Toyota", "modelo": "Corolla", "anio": 2022, "motor": "1.8L VVT-i"},
+        "8G9J62": {"marca": "Honda", "modelo": "Civic", "anio": 2021, "motor": "2.0L i-VTEC"},
+        "3X7K91": {"marca": "Ford", "modelo": "Ranger", "anio": 2020, "motor": "3.2L Turbo Diesel"},
+        "6M4L85": {"marca": "Chevrolet", "modelo": "Onix", "anio": 2023, "motor": "1.2L Turbo"},
+    }
+
+    # Buscar placa en el diccionario de datos simulados
+    vehiculo = data_vehiculos.get(placa.upper())
+
+    if vehiculo:
+        return JSONResponse(status_code=200, content={"estado": 200, "mensaje": "Vehículo encontrado", "data": vehiculo})
+    else:
+        return JSONResponse(status_code=404, content={"estado": 422, "mensaje": "Placa no encontrada"})
