@@ -114,48 +114,90 @@ class ConsultarEstadoRequest(BaseModel):
 # Datos simulados predefinidos en una estructura de diccionario
 simulated_docs = {
     "BOLETA": {
-        "B001-12345678": {
-            "documento": "B001-12345678",
-            "tipo_documento": "BOLETA",
-            "fechaventa": "2025-01-01",
-            "nrointerno": "B1234",
-            "guiaremision": "G001-12345678",
-            "condicionpago": "Contado",
-            "vendedor": "Vendedor Boleta",
-            "departamento": "Lima",
-            "sucursal": "Sucursal Boleta",
-            "almacen": "Almacén Boleta",
-            "transportista": "Transportista Boleta"
-        }
+        "documento": "B001-12345678",
+        "tipo_documento": "BOLETA",
+        "fechaventa": "2025-01-01",
+        "nrointerno": "B1234",
+        "guiaremision": "G001-12345678",
+        "condicionpago": "Contado",
+        "vendedor": "Vendedor Boleta",
+        "departamento": "Lima",
+        "sucursal": "Sucursal Boleta",
+        "almacen": "Almacén Boleta",
+        "transportista": "Transportista Boleta",
+        "cliente": {
+            "nombre_completo": "Samuel Roman Tito"  
+        },
+        "productos": [
+            {
+                "codigo": "P001",
+                "nombre": "Producto 1",
+                "linea": "Linea 1",
+                "organizacion": "Organización 1",
+                "marca": "Marca 1",
+                "marca_desc": "Descripción Marca 1",
+                "fabrica": "Fabrica 1",
+                "articulo": "Articulo 1",
+                "cantidad": 1
+            }
+        ]
     },
     "FACTURA": {
-        "F001-87654321": {
-            "documento": "F001-87654321",
-            "tipo_documento": "FACTURA",
-            "fechaventa": "2025-01-02",
-            "nrointerno": "F5678",
-            "guiaremision": "G001-87654321",
-            "condicionpago": "Crédito",
-            "vendedor": "Vendedor Factura",
-            "departamento": "Arequipa",
-            "sucursal": "Sucursal Factura",
-            "almacen": "Almacén Factura",
-            "transportista": "Transportista Factura"
-        }
+        "documento": "F001-87654321",
+        "tipo_documento": "FACTURA",
+        "fechaventa": "2025-01-02",
+        "nrointerno": "F5678",
+        "guiaremision": "G001-87654321",
+        "condicionpago": "Crédito",
+        "vendedor": "Vendedor Factura",
+        "departamento": "Arequipa",
+        "sucursal": "Sucursal Factura",
+        "almacen": "Almacén Factura",
+        "transportista": "Transportista Factura",
+        "cliente": {
+            "nombre_completo": "Samuel Roman Tito"  
+        },
+        "productos": [
+            {
+                "codigo": "P002",
+                "nombre": "Producto 2",
+                "linea": "Linea 2",
+                "organizacion": "Organización 2",
+                "marca": "Marca 2",
+                "marca_desc": "Descripción Marca 2",
+                "fabrica": "Fabrica 2",
+                "articulo": "Articulo 2",
+                "cantidad": 2
+            }
+        ]
     },
     "NOTA DE VENTA": {
-        "1234567": {
-            "documento": "1234567",
-            "tipo_documento": "NOTA DE VENTA",
-            "fechaventa": "2025-01-03",
-            "nrointerno": "NV9012",
-            "guiaremision": "G001-1234567",
-            "condicionpago": "Efectivo",
-            "vendedor": "Vendedor NV",
-            "departamento": "Cusco",
-            "sucursal": "Sucursal NV",
-            "almacen": "Almacén NV",
-            "transportista": "Transportista NV"
-        }
+        "documento": "1234567",
+        "tipo_documento": "NOTA DE VENTA",
+        "fechaventa": "2025-01-03",
+        "nrointerno": "NV9012",
+        "guiaremision": "G001-1234567",
+        "condicionpago": "Efectivo",
+        "vendedor": "Vendedor NV",
+        "departamento": "Cusco",
+        "sucursal": "Sucursal NV",
+        "almacen": "Almacén NV",
+        "transportista": "Transportista NV",
+        "cliente": {
+            "nombre_completo": "Samuel Roman Tito"  
+        },
+        "productos": [
+            {
+                "codigo": "P003",
+                "nombre": "Producto 3",
+                "linea": "Linea 3",
+                "organizacion": "Organización 3",
+                "marca": "Marca 3",
+                "marca_desc": "Descripción Marca 3",
+                "fabrica": "Fabrica 3",
+                "articulo": "Articulo 3",
+                "cantidad": 3
+            }
+        ]
     }
 }

@@ -642,14 +642,12 @@ async def buscar_documento(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
-
     # Validar token
     query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_token = db.execute(query_token, {"token": token}).fetchone()
-
     if not result_token:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
-
+    
     # Validaciones de tipo de documento
     if tipo_documento in [1, 2]:  # BOLETA o FACTURA
         if not serie or not re.fullmatch(r'[A-Za-z0-9]{4}', serie.strip()):
@@ -670,8 +668,11 @@ async def buscar_documento(
                     "mensaje": "No es posible procesar los datos enviados."
                 }
             )
-        key = f"{serie}-{correlativo}"
         doc_type = "BOLETA" if tipo_documento == 1 else "FACTURA"
+        # Crear una copia del documento plantilla y actualizarlo con los datos proporcionados
+        documento_info = simulated_docs[doc_type].copy()
+        documento_info["documento"] = f"{serie}-{correlativo}"
+        
     elif tipo_documento == 3:  # NOTA DE VENTA
         if serie and serie.strip() != "":
             return JSONResponse(
@@ -691,8 +692,11 @@ async def buscar_documento(
                     "mensaje": "No es posible procesar los datos enviados."
                 }
             )
-        key = correlativo
         doc_type = "NOTA DE VENTA"
+        # Crear una copia del documento plantilla y actualizarlo con el correlativo proporcionado
+        documento_info = simulated_docs[doc_type].copy()
+        documento_info["documento"] = correlativo
+        
     else:
         return JSONResponse(
             status_code=422,
@@ -702,17 +706,6 @@ async def buscar_documento(
                 "mensaje": "No es posible procesar los datos enviados."
             }
         )
-
-    # Buscar en la data simulada según el tipo de documento y la clave construida
-    documento_info = simulated_docs.get(doc_type, {}).get(key)
-    if not documento_info:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "errores": {"documento": [f"No existe documento con {'serie y correlativo' if tipo_documento in [1,2] else 'correlativo'} especificado."]},
-                "estado": 422,
-                "mensaje": "No es posible procesar los datos enviados."
-            }
-        )
-
+    
+    # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
