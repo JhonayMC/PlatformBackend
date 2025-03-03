@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
-from app.models.formularios import ReclamoRequest, QuejaRequest, simulated_docs 
+from app.models.formularios import ReclamoRequest, QuejaRequest, ConsultarEstadoRequest, simulated_docs 
 from app.db.connection import SessionLocal
 from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
@@ -74,7 +74,7 @@ def registrar_reclamo(
         "n_interno", "guia_remision", "sucursal", "almacen", "condicion_pago",
         "vendedor", "transportista", "cliente_ruc_dni", "dni", "nombres",
         "apellidos", "email", "telefono", "placa_vehiculo", "modelo_vehiculo",
-        "marca", "modelo_motor", "anio", "tipo_operacion", "fecha_instalacion", "horas_uso_reclamo", "km_instalacion",
+        "marca", "modelo_motor", "anio", "tipo_operacion_id", "fecha_instalacion", "horas_uso_reclamo", "km_instalacion",
         "km_actual", "km_recorridos", "detalle_reclamo"
     ]
     # Si es trabajador, validar los nuevos campos
@@ -173,14 +173,14 @@ def registrar_reclamo(
                 INSERT INTO postventa.reclamos (
                     documento_id, usuarios_id, tipo_usuarios_id, dni, nombres, apellidos, email, telefono, 
                     detalle_reclamo, estado, fecha_creacion,
-                    placa_vehiculo, modelo_vehiculo, marca, modelo_motor, anio, tipo_operacion,
+                    placa_vehiculo, modelo_vehiculo, marca, modelo_motor, anio, tipo_operacion_id,
                     fecha_instalacion, horas_uso_reclamo, 
                     km_instalacion, km_actual, km_recorridos,
                     clasificacion_venta, potencial_venta, producto_tienda
                 ) VALUES (
                     :documento_id, :usuarios_id, :tipo_usuarios_id, :dni, :nombres, :apellidos, :email, :telefono, 
                     :detalle_reclamo, 'Generado', CURRENT_TIMESTAMP,
-                    :placa_vehiculo, :modelo_vehiculo, :marca, :modelo_motor, :anio, :tipo_operacion,
+                    :placa_vehiculo, :modelo_vehiculo, :marca, :modelo_motor, :anio, :tipo_operacion_id,
                     :fecha_instalacion, :horas_uso_reclamo, 
                     :km_instalacion, :km_actual, :km_recorridos,
                     :clasificacion_venta, :potencial_venta, :producto_tienda
@@ -191,13 +191,13 @@ def registrar_reclamo(
                 INSERT INTO postventa.reclamos (
                     documento_id, usuarios_id, tipo_usuarios_id, dni, nombres, apellidos, email, telefono, 
                     detalle_reclamo, estado, fecha_creacion,
-                    placa_vehiculo, modelo_vehiculo, marca, modelo_motor, anio, tipo_operacion,
+                    placa_vehiculo, modelo_vehiculo, marca, modelo_motor, anio, tipo_operacion_id,
                     fecha_instalacion, horas_uso_reclamo, 
                     km_instalacion, km_actual, km_recorridos
                 ) VALUES (
                     :documento_id, :usuarios_id, :tipo_usuarios_id, :dni, :nombres, :apellidos, :email, :telefono, 
                     :detalle_reclamo, 'Generado', CURRENT_TIMESTAMP,
-                    :placa_vehiculo, :modelo_vehiculo, :marca, :modelo_motor, :anio, :tipo_operacion,
+                    :placa_vehiculo, :modelo_vehiculo, :marca, :modelo_motor, :anio, :tipo_operacion_id,
                     :fecha_instalacion, :horas_uso_reclamo, 
                     :km_instalacion, :km_actual, :km_recorridos
                 ) RETURNING id_reclamo, fecha_creacion
@@ -294,6 +294,68 @@ def registrar_reclamo(
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
 
+@router.get("/consultar-estado-reclamo-queja")
+def consultar_estado_reclamo_queja(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    # Obtener usuarios_id desde USUARIOS_TOKENS
+    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_token = db.execute(query_token, {"token": token}).fetchone()
+
+    if not result_token:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+    usuarios_id = result_token[0]
+
+    # Obtener tipo_usuarios_id y empresa_id para verificar si es trabajador
+    query_usuario = text("SELECT tipo_usuarios_id, empresa_id FROM postventa.usuarios WHERE id = :usuarios_id")
+    result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado"})
+
+    tipo_usuarios_id, empresa_id = result_usuario
+
+    # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas
+    if empresa_id is None:
+        query_reclamos = text("""
+            SELECT 
+                'R' || id_reclamo AS id, detalle_reclamo, fecha_creacion
+            FROM postventa.reclamos
+            WHERE usuarios_id = :usuarios_id
+        """)
+
+        query_quejas = text("""
+            SELECT 
+                'Q' || id_queja AS id, motivo_queja, fecha_creacion
+            FROM postventa.quejas
+            WHERE usuarios_id = :usuarios_id
+        """)
+
+        # Ejecutar ambas consultas
+        result_reclamos = db.execute(query_reclamos, {"usuarios_id": usuarios_id}).fetchall()
+        result_quejas = db.execute(query_quejas, {"usuarios_id": usuarios_id}).fetchall()
+
+        # Convertir los resultados a diccionarios con la fecha formateada
+        reclamos = [{"id": row[0], "detalle_reclamo": row[1], "fecha_creacion": row[2].strftime("%d/%m/%Y %H:%M")} for row in result_reclamos]
+        quejas = [{"id": row[0], "motivo_queja": row[1], "fecha_creacion": row[2].strftime("%d/%m/%Y %H:%M")} for row in result_quejas]
+
+        # Combinar y ordenar por fecha_creacion DESC
+        data_completa = sorted(reclamos + quejas, key=lambda x: x["fecha_creacion"], reverse=True)
+
+        return JSONResponse(
+            status_code=200,
+            content={"estado": 200, "mensaje": "Consulta exitosa.", "data": data_completa}
+        )
+
+    # Si el usuario es trabajador, aquí manejaríamos la lógica específica (veremos después)
+    return JSONResponse(
+        status_code=400, content={"estado": 400, "mensaje": "Acción no permitida para trabajadores en esta etapa."}
+    )
+
 @router.post("/registrar-queja")
 def registrar_queja(
     request: QuejaRequest,
@@ -337,7 +399,7 @@ def registrar_queja(
 
     # Validar campos obligatorios generales
     campos_obligatorios = [
-        "tipo_queja", "motivo_queja", "descripcion", "cliente_ruc_dni", "dni",
+        "tipo_queja", "descripcion", "cliente_ruc_dni", "dni",
         "nombres", "apellidos", "email", "telefono"
     ]
 
@@ -358,10 +420,10 @@ def registrar_queja(
             ])
 
     if request_dict["tipo_queja"] == "Servicio":
-        campos_obligatorios.append("fecha_queja")
+        campos_obligatorios.extend(["fecha_queja","motivos_servicio_id"])
     elif request_dict["tipo_queja"] == "Producto":
         campos_obligatorios.extend([
-            "tipo_correlativos_id", "serie", "correlativo", "fecha_venta", "provincia",
+            "tipo_correlativos_id", "serie", "correlativo","motivos_producto_id", "fecha_venta", "provincia",
             "n_interno", "guia_remision", "sucursal", "almacen", "condicion_pago",
             "vendedor", "transportista"
         ])
@@ -430,7 +492,7 @@ def registrar_queja(
         documento_id = None
 
         if request_dict["tipo_queja"] == "Producto":
-            # ✅ Insertar en documentos
+            # Insertar en documentos
             insert_documento = text("""
                 INSERT INTO postventa.documentos (
                     tipo_correlativos_id, serie, correlativo, fecha_venta, provincia, n_interno, 
@@ -446,22 +508,22 @@ def registrar_queja(
             documento_id = result.fetchone()[0]
             request_dict["documento_id"] = documento_id
 
-        # ✅ Definir el valor de `tipog` automáticamente
+        # Definir el valor de `tipog` automáticamente
         tipog = "G1" if request_dict["tipo_queja"] == "Producto" else "G2"
         request_dict["tipog"] = tipog
 
-        # ✅ Insertar en quejas
+        # Insertar en quejas
         estado = "Generado" if request_dict["tipo_queja"] == "Producto" else "Registrada"
 
         # Construcción dinámica de la consulta SQL según tipo de usuario y tipo de queja
         insert_queja_fields = [
-            "usuarios_id", "tipo_usuarios_id", "tipo_queja", "tipog", "motivo_queja",
+            "usuarios_id", "tipo_usuarios_id", "tipo_queja", "tipog",
             "descripcion", "cliente_ruc_dni", "dni_solicitante", "nombre", "apellido",
             "email", "telefono", "estado", "fecha_creacion"
         ]
 
         insert_queja_values = [
-            ":usuarios_id", ":tipo_usuarios_id", ":tipo_queja", ":tipog", ":motivo_queja",
+            ":usuarios_id", ":tipo_usuarios_id", ":tipo_queja", ":tipog",
             ":descripcion", ":cliente_ruc_dni", ":dni", ":nombres", ":apellidos",
             ":email", ":telefono", ":estado", "CURRENT_TIMESTAMP"
         ]
@@ -471,11 +533,16 @@ def registrar_queja(
             insert_queja_fields.insert(0, "documento_id")
             insert_queja_values.insert(0, ":documento_id")
 
+            insert_queja_fields.append("motivos_producto_id")
+            insert_queja_values.append(":motivos_producto_id")
+
             # Añadir fecha_venta
             insert_queja_fields.append("fecha_venta")
             insert_queja_values.append(":fecha_venta")
 
         elif request_dict["tipo_queja"] == "Servicio":
+            insert_queja_fields.append("motivos_servicio_id")
+            insert_queja_values.append(":motivos_servicio_id")
             # Añadir fecha_queja
             insert_queja_fields.append("fecha_queja")
             insert_queja_values.append(":fecha_queja")
@@ -500,14 +567,14 @@ def registrar_queja(
 
         request_dict["estado"] = estado
 
-        # ✅ Convertir a objeto text() antes de ejecutar
+        # Convertir a objeto text() antes de ejecutar
         result = db.execute(text(insert_queja_sql), request_dict)
         queja_id, fecha_creacion = result.fetchone()
         request_dict["queja_id"] = queja_id
         request_dict["fecha_creacion"] = fecha_creacion.isoformat()
 
 
-        # ✅ Insertar en productos_reclamos si tipo_queja es Producto
+        # Insertar en productos_reclamos si tipo_queja es Producto
         if request_dict["tipo_queja"] == "Producto":
             # Determinar los campos a insertar basados en si es trabajador o no
             producto_fields = [
@@ -536,7 +603,7 @@ def registrar_queja(
             producto_dict["queja_id"] = queja_id
             db.execute(text(insert_producto_sql), producto_dict)
 
-        # ✅ Insertar en archivos con tipo_formulario = "Queja"
+        # Insertar en archivos con tipo_formulario = "Queja"
         for archivo in archivos:
             insert_archivo = text("""
                 INSERT INTO postventa.archivos (
@@ -554,7 +621,7 @@ def registrar_queja(
             db.execute(insert_archivo, archivo_data)
 
         db.commit()
-        # ✅ Filtrar los valores `None` de la respuesta antes de enviarla
+        # Filtrar los valores `None` de la respuesta antes de enviarla
         response_data = {k: v for k, v in request_dict.items() if v is not None}
 
         return JSONResponse(

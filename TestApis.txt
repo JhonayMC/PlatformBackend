@@ -97,7 +97,7 @@ Body:
     "marca": "Toyota",
     "modelo_motor": "1.8L VVT-i",
     "anio": 2023,
-    "tipo_operacion": "Transporte de carga",
+    "tipo_operacion_id": 2,
     "fecha_instalacion": "2024-02-10",
     "horas_uso_reclamo": 500,
     "km_instalacion": 10000,
@@ -154,7 +154,7 @@ CUANDO SON TRABAJADORES:
     "marca": "Toyota",
     "modelo_motor": "1.8L VVT-i",
     "anio": 2023,
-    "tipo_operacion": "Transporte de carga",
+    "tipo_operacion_id": 2,
     "fecha_instalacion": "2024-02-10",
     "horas_uso_reclamo": 500,
     "km_instalacion": 10000,
@@ -193,7 +193,7 @@ Pasar el token generado al inicar sesión
 
 {
     "tipo_queja": "Producto",
-    "motivo_queja":"Cantidad",
+    "motivos_producto_id": 3,
     "tipo_correlativos_id": "1",
     "serie": "1234",
     "correlativo": "12345678",
@@ -239,7 +239,7 @@ Pasar el token generado al inicar sesión
 CUANDO SON TRABAJADORES:
 {
     "tipo_queja": "Producto",
-    "motivo_queja":"Cantidad",
+    "motivos_producto_id": 3,
     "tipo_correlativos_id": "1",
     "serie": "1234",
     "correlativo": "12345678",
@@ -294,7 +294,7 @@ Pasar el token generado al inicar sesión
 
 {
     "tipo_queja": "Servicio",
-    "motivo_queja": "Desabasto",
+    "motivos_servicio_id": 3,
     "fecha_queja": "2024-02-20",
     "descripcion": "Falta de productos en almacén",
     "cliente_ruc_dni": "20123456789",
@@ -318,7 +318,7 @@ Pasar el token generado al inicar sesión
 CUANDO SON TRABAJADORES:
 {
     "tipo_queja": "Servicio",
-    "motivo_queja": "Desabasto",
+    "motivos_servicio_id": 3,
     "fecha_queja": "2024-02-26",
     "descripcion": "Falta de productos en almacén",
     "cliente_ruc_dni": "20123456789",

@@ -174,7 +174,7 @@ CREATE TABLE postventa.reclamos (
     marca VARCHAR(50),
     modelo_motor VARCHAR(50),
     anio INT,
-    tipo_operacion VARCHAR(50) CHECK (tipo_operacion IN ('Transporte de carga', 'Transporte de pasajeros', 'Construcción', 'Minería', 'Agrícola')),
+    tipo_operacion_id INT,
     clasificacion_venta VARCHAR(100),
     potencial_venta VARCHAR(100),
     producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
@@ -185,7 +185,8 @@ CREATE TABLE postventa.reclamos (
     km_recorridos INT,
     CONSTRAINT fk_reclamos_documentos FOREIGN KEY (documento_id) REFERENCES postventa.documentos(id_documento),
     CONSTRAINT fk_reclamos_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_reclamos_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id)
+    CONSTRAINT fk_reclamos_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
+    CONSTRAINT fk_reclamos_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operacion(id)
 );
 
 -- Tabla: QUEJAS
@@ -196,30 +197,8 @@ CREATE TABLE postventa.quejas (
     tipo_usuarios_id BIGINT NOT NULL,
     tipo_queja VARCHAR(20) CHECK (tipo_queja IN ('Producto', 'Servicio')),
     tipog VARCHAR(2) CHECK (tipog IN ('G1', 'G2')),
-    motivo_queja VARCHAR(100) CHECK (
-        (tipo_queja = 'Producto' AND motivo_queja IN (
-            'Datos mal consignados (razón social, RUC, destino)',
-            'Doble facturación',
-            'Precio',
-            'Cantidad',
-            'Producto no solicitado',
-            'Marca errada',
-            'Código errado',
-            'Empaque / repuesto en mal estado',
-            'Mercadería sin empaque de marca',
-            'Repuesto incompleto',
-            'Repuesto diferente a la muestra / original'
-        )) OR
-        (tipo_queja = 'Servicio' AND motivo_queja IN (
-            'Mala atención',
-            'Personal de M&M',
-            'Demora en la atención',
-            'Ambiente',
-            'Demora en la entrega',
-            'Desabasto',
-            'Falta de información'
-        ))
-    ),
+    motivos_producto_id INT,
+    motivos_servicio_id INT
     fecha_queja DATE,
     fecha_venta DATE,
     descripcion TEXT NOT NULL,
@@ -237,7 +216,9 @@ CREATE TABLE postventa.quejas (
     fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_quejas_documentos FOREIGN KEY (documento_id) REFERENCES postventa.documentos(id_documento),
     CONSTRAINT fk_quejas_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_quejas_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id)
+    CONSTRAINT fk_quejas_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
+    CONSTRAINT fk_quejas_motivos_producto FOREIGN KEY (motivos_producto_id) REFERENCES postventa.motivos_producto(id),
+    CONSTRAINT fk_quejas_motivos_servicio FOREIGN KEY (motivos_servicio_id) REFERENCES postventa.motivos_servicio(id)
 );
 
 -- Tabla: PRODUCTOS_RECLAMOS
@@ -283,6 +264,64 @@ INSERT INTO postventa.tipo_correlativos (id, nombre, estado) VALUES (1, 'Boleta'
 INSERT INTO postventa.tipo_correlativos (id, nombre, estado) VALUES (2, 'Factura', 'A');
 INSERT INTO postventa.tipo_correlativos (id, nombre, estado) VALUES (3, 'Nota de Venta', 'A');
 
+
+CREATE TABLE postventa.tipo_correlativos (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE postventa.tipo_operaciones (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE postventa.motivos_producto (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE postventa.motivos_servicio (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL
+);
+
+-- Insertar en tipo_correlativos
+INSERT INTO postventa.tipo_correlativos (nombre) VALUES
+('Boleta'),
+('Factura'),
+('Nota de Venta');
+
+-- Insertar en tipo_operaciones
+INSERT INTO postventa.tipo_operaciones (nombre) VALUES
+('Transporte de Carga'),
+('Transporte de Pasajeros'),
+('Construcción'),
+('Minería'),
+('Agrícola');
+
+-- Insertar en motivos_producto
+INSERT INTO postventa.motivos_producto (nombre) VALUES
+('Datos mal consignados (razón social, RUC, destino)'),
+('Doble Facturación'),
+('Precio'),
+('Cantidad'),
+('Producto no solicitado'),
+('Marca errada'),
+('Código errado'),
+('Empaque/repuesto en mal estado'),
+('Mercadería sin empaque de marca'),
+('Repuesto incompleto'),
+('Repuesto diferente a la muestra/original');
+
+--Insertar en motivos_servicio
+INSERT INTO postventa.motivos_servicio (nombre) VALUES
+('Mala atención del Cliente'),
+('Personal de M&M'),
+('Demora en la atención'),
+('Ambiente'),
+('Demora en la entrega de productos'),
+('Desabasto'),
+('Falta de información');
 
 
 

@@ -49,7 +49,7 @@ class ReclamoRequest(BaseModel):
     marca: Optional[str]
     modelo_motor: Optional[str]
     anio: Optional[int]
-    tipo_operacion: str
+    tipo_operacion_id: int
     fecha_instalacion: Optional[date]
     horas_uso_reclamo: Optional[int]
     km_instalacion: Optional[int]
@@ -74,7 +74,8 @@ class ProductoRequest(BaseModel):
 
 class QuejaRequest(BaseModel):
     tipo_queja: str
-    motivo_queja: str
+    motivos_producto_id: Optional[int] = None
+    motivos_servicio_id: Optional[int] = None
     descripcion: str
     cliente_ruc_dni: str
     dni: str
@@ -103,6 +104,12 @@ class QuejaRequest(BaseModel):
     transportista: Optional[str] = None
     productos: Optional[List[ProductoRequest]] = None
     archivos: List[ArchivoRequest]
+
+class ConsultarEstadoRequest(BaseModel):
+    tipo_correlativos_id: Optional[int] = None
+    cliente_ruc_dni: Optional[str] = None
+    estado: Optional[str] = None
+
 
 # Datos simulados predefinidos en una estructura de diccionario
 simulated_docs = {
