@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date
+from fastapi import Form, UploadFile, File
 
 # Modelo para la carga de archivos
 class ArchivoRequest(BaseModel):
@@ -72,6 +73,115 @@ class ProductoRequest(BaseModel):
     cantidad_reclamo: int
     und_reclamo: str
 
+#probado la funcionalidad con el FormData
+# Modelo para productos en FormData con ID
+class ProductoReclamoForm:
+    def __init__(
+        self,
+        #form_3_itm: str = Form(...),
+        #form_3_lin: str = Form(...),
+        #form_3_org: str = Form(...),
+        #form_3_marc: str = Form(...),
+        #form_3_descrp_marc: str = Form(...),
+        #form_3_fabrica: str = Form(...),
+        #form_3_articulo: str = Form(...),
+        #form_3_descripcion: str = Form(...),
+        form_3_precio: Optional[float] = Form(None),
+        form_3_cantidad: int = Form(...),
+        #form_3_und_reclamo: str = Form(...)
+    ):
+        #self.itm = form_3_itm
+        #self.lin = form_3_lin
+        #self.org = form_3_org
+        #self.marc = form_3_marc
+        #self.descrp_marc = form_3_descrp_marc
+        #self.fabrica = form_3_fabrica
+        #self.articulo = form_3_articulo
+        #self.descripcion = form_3_descripcion
+        self.precio = form_3_precio
+        self.cantidad = form_3_cantidad
+        #self.und_reclamo = form_3_und_reclamo
+
+# Modelo para archivos en FormData
+class ArchivoForm:
+    def __init__(
+        self,
+        form_5_images: List[UploadFile] = File(None),
+        form_5_videos: List[UploadFile] = File(None),
+    ):
+        self.images = form_5_images
+        self.videos = form_5_videos
+
+# Modelo principal del reclamo usando FormData
+class ReclamoForm:
+    def __init__(
+        self,
+        form_1_tipocorrelativo_id: int = Form(...),
+        form_1_serie: Optional[str] = Form(None),
+        form_1_correlativo: str = Form(...),
+        form_1_fechaventa: str = Form(...),
+        form_1_nrointerno: str = Form(...),
+        form_1_guiaremision: Optional[str] = Form(None),
+        form_1_condicionpago: str = Form(...),
+        form_1_vendedor: str = Form(...),
+        form_1_departamento: str = Form(...),
+        form_1_sucursal: str = Form(...),
+        form_1_almacen: str = Form(...),
+        form_1_transportista: Optional[str] = Form(None),
+
+        form_2_cliente: str = Form(...),
+        form_2_dni: str = Form(...),
+        form_2_nombres: str = Form(...),
+        form_2_apellidos: str = Form(...),
+        form_2_correo: str = Form(...),
+        form_2_telefono: str = Form(...),
+
+        form_4_nroplaca: Optional[str] = Form(None),
+        form_4_marca: Optional[str] = Form(None),
+        form_4_modelo: Optional[str] = Form(None),
+        form_4_anio: Optional[int] = Form(None),
+        form_4_motor: Optional[str] = Form(None),
+        form_4_tipoOperacion: int = Form(...),
+        form_4_fechaInstalacion: Optional[str] = Form(None),
+        form_4_horaUso: Optional[int] = Form(None),
+        form_4_kmInstalacion: Optional[int] = Form(None),
+        form_4_kmActual: Optional[int] = Form(None),
+
+        form_5_descripcion: str = Form(...),
+    ):
+        self.tipocorrelativo_id = form_1_tipocorrelativo_id
+        self.serie = form_1_serie
+        self.correlativo = form_1_correlativo
+        self.fechaventa = form_1_fechaventa
+        self.nrointerno = form_1_nrointerno
+        self.guiaremision = form_1_guiaremision
+        self.condicionpago = form_1_condicionpago
+        self.vendedor = form_1_vendedor
+        self.departamento = form_1_departamento
+        self.sucursal = form_1_sucursal
+        self.almacen = form_1_almacen
+        self.transportista = form_1_transportista
+
+        self.cliente = form_2_cliente
+        self.dni = form_2_dni
+        self.nombres = form_2_nombres
+        self.apellidos = form_2_apellidos
+        self.correo = form_2_correo
+        self.telefono = form_2_telefono
+
+        self.nroplaca = form_4_nroplaca
+        self.marca = form_4_marca
+        self.modelo = form_4_modelo
+        self.anio = form_4_anio
+        self.motor = form_4_motor
+        self.tipoOperacion = form_4_tipoOperacion
+        self.fechaInstalacion = form_4_fechaInstalacion
+        self.horaUso = form_4_horaUso
+        self.kmInstalacion = form_4_kmInstalacion
+        self.kmActual = form_4_kmActual
+
+        self.descripcion = form_5_descripcion
+
 class QuejaRequest(BaseModel):
     tipo_queja: str
     motivos_producto_id: Optional[int] = None
@@ -109,6 +219,42 @@ class ConsultarEstadoRequest(BaseModel):
     tipo_correlativos_id: Optional[int] = None
     cliente_ruc_dni: Optional[str] = None
     estado: Optional[str] = None
+
+#Form Data Para Quejas Servicio
+class ArchivoServicioForm:
+    def __init__(
+        self,
+        form_2_images: List[UploadFile] = File(None),
+        form_2_videos: List[UploadFile] = File(None),
+    ):
+        self.images = form_2_images
+        self.videos = form_2_videos
+
+class QuejaServicioForm:
+    def __init__(
+        self,
+        tipo_queja: str = Form(...),
+        form_1_motivo: int = Form(...),
+        form_2_fecha: str = Form(...),
+        form_2_descripcion: str = Form(...),
+        form_3_cliente: str = Form(...),
+        form_3_dni: str = Form(...),
+        form_3_nombres: str = Form(...),
+        form_3_apellidos: str = Form(...),
+        form_3_correo: str = Form(...),
+        form_3_telefono: str = Form(...),
+    ):
+        self.tipo_queja = tipo_queja
+        self.motivo = form_1_motivo
+        self.fecha_queja = form_2_fecha
+        self.descripcion = form_2_descripcion
+        self.cliente = form_3_cliente
+        self.dni = form_3_dni
+        self.nombres = form_3_nombres
+        self.apellidos = form_3_apellidos
+        self.correo = form_3_correo
+        self.telefono = form_3_telefono
+
 
 
 # Datos simulados predefinidos en una estructura de diccionario

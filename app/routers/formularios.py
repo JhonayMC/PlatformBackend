@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
 from app.models.formularios import ReclamoRequest, QuejaRequest, ConsultarEstadoRequest, simulated_docs 
+from app.models.formularios import ReclamoForm, ProductoReclamoForm, ArchivoForm, QuejaServicioForm, ArchivoServicioForm
 from app.db.connection import SessionLocal
 from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
@@ -33,7 +34,7 @@ def json_serial(obj):
         return obj.isoformat()  # Convierte a `YYYY-MM-DD` o `YYYY-MM-DDTHH:MM:SS`
     raise TypeError(f"Type {type(obj)} not serializable")
 
-@router.post("/registrar-reclamo")
+@router.post("/registrar-reclamo1")
 def registrar_reclamo(
     request: ReclamoRequest,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -293,6 +294,190 @@ def registrar_reclamo(
     except Exception as e:
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
+
+@router.post("/registrar-reclamo")
+def registrar_reclamo(
+    form_data: ReclamoForm = Depends(),
+    producto_data: ProductoReclamoForm = Depends(),
+    archivo_data: ArchivoForm = Depends(),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+
+    token = credentials.credentials
+
+    # Obtener `usuarios_id` desde `USUARIOS_TOKENS`
+    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_token = db.execute(query_token, {"token": token}).fetchone()
+
+    if not result_token:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+    usuarios_id = result_token[0]
+
+    # Obtener `tipo_usuarios_id` desde `USUARIOS`
+    query_usuario = text("SELECT tipo_usuarios_id, empresa_id FROM postventa.usuarios WHERE id = :usuarios_id")
+    result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado"})
+
+    tipo_usuarios_id, empresa_id = result_usuario
+
+    # Validamos si es trabajador o cliente
+    es_trabajador = empresa_id is not None
+
+    # Convertir form_data a diccionario
+    request_dict = form_data.__dict__
+
+    # Manejo de errores
+    errores = {}
+
+    # Validación de campos obligatorios
+    campos_obligatorios = [
+        "tipocorrelativo_id", "correlativo", "fechaventa", "departamento",
+        "nrointerno", "guiaremision", "sucursal", "almacen", "condicionpago",
+        "vendedor", "transportista", "cliente", "dni", "nombres",
+        "apellidos", "correo", "telefono", "nroplaca", "modelo",
+        "marca", "motor", "anio", "tipoOperacion", "fechaInstalacion",
+        "horaUso", "kmInstalacion", "kmActual", "descripcion"
+    ]
+
+    for campo in campos_obligatorios:
+        if getattr(form_data, campo, None) is None or str(getattr(form_data, campo)).strip() == "":
+            errores.setdefault(campo, []).append("Campo obligatorio")
+
+    # Validar `tipocorrelativo_id`, `serie` y `correlativo`
+    tipocorrelativo_id = form_data.tipocorrelativo_id
+    serie = form_data.serie
+    correlativo = form_data.correlativo
+
+    if tipocorrelativo_id in [1, 2]:  # Serie = 4 caracteres, Correlativo = 8 caracteres
+        if not serie or len(serie) != 4:
+            errores.setdefault("serie", []).append("La serie debe tener exactamente 4 caracteres.")
+        if not correlativo or len(correlativo) != 8:
+            errores.setdefault("correlativo", []).append("El correlativo debe tener exactamente 8 caracteres.")
+    
+    elif tipocorrelativo_id == 3:  # No debe tener serie, Correlativo = 7 caracteres
+        if serie:
+            errores.setdefault("serie", []).append("No debe incluir una serie.")
+        if not correlativo or len(correlativo) != 7:
+            errores.setdefault("correlativo", []).append("El correlativo debe tener exactamente 7 caracteres.")
+
+    # Validar si es trabajador
+    if es_trabajador:
+        nuevos_campos_reclamos = ["clasificacion_venta", "potencial_venta", "producto_tienda"]
+        for campo in nuevos_campos_reclamos:
+            if getattr(form_data, campo, None) is None or str(getattr(form_data, campo)).strip() == "":
+                errores.setdefault(campo, []).append("Campo obligatorio para trabajadores")
+
+    # Validar productos
+    if not producto_data or producto_data.cantidad < 1:
+        errores.setdefault("productos", []).append("Debe agregar al menos un producto")
+
+    # Validar archivos
+    if not archivo_data.images and not archivo_data.videos:
+        errores.setdefault("archivos", []).append("Debe adjuntar al menos un archivo")
+
+    # Si hay errores, devolver 422 con todos los errores detectados
+    if errores:
+        return JSONResponse(
+            status_code=422,
+            content={"errores": errores, "estado": 422, "mensaje": "No es posible procesar los datos enviados."}
+        )
+
+    try:
+        # Insertar en la tabla DOCUMENTOS
+        insert_documento = text("""
+            INSERT INTO postventa.documentos (
+                tipo_correlativos_id, serie, correlativo, fecha_venta, departamento, n_interno, 
+                guia_remision, sucursal, almacen, condicion_pago, vendedor, transportista, 
+                usuarios_id, cliente
+            ) VALUES (
+                :tipocorrelativo_id, :serie, :correlativo, :fechaventa, :departamento, :nrointerno, 
+                :guiaremision, :sucursal, :almacen, :condicionpago, :vendedor, :transportista, 
+                :usuarios_id, :cliente
+            ) RETURNING id_documento
+        """)
+
+        result = db.execute(insert_documento, {**request_dict, "usuarios_id": usuarios_id})
+        db.commit()
+        documento_id = result.fetchone()[0]
+
+        # Insertar en la tabla RECLAMOS
+        insert_reclamo = text("""
+            INSERT INTO postventa.reclamos (
+                documento_id, usuarios_id, tipo_usuarios_id, dni, nombres, apellidos, email, telefono, 
+                detalle_reclamo, estado, fecha_creacion,
+                placa_vehiculo, modelo_vehiculo, marca, modelo_motor, anio, tipo_operacion_id,
+                fecha_instalacion, horas_uso_reclamo, 
+                km_instalacion, km_actual
+            ) VALUES (
+                :documento_id, :usuarios_id, :tipo_usuarios_id, :dni, :nombres, :apellidos, :correo, :telefono, 
+                :descripcion, 'Generado', CURRENT_TIMESTAMP,
+                :nroplaca, :modelo, :marca, :motor, :anio, :tipoOperacion,
+                :fechaInstalacion, :horaUso, 
+                :kmInstalacion, :kmActual
+            ) RETURNING id_reclamo
+        """)
+
+        result = db.execute(insert_reclamo, {**request_dict, "documento_id": documento_id, "usuarios_id": usuarios_id, "tipo_usuarios_id": tipo_usuarios_id})
+        db.commit()
+        reclamo_id = result.fetchone()[0]
+
+        # Insertar productos
+        insert_producto = text("""
+            INSERT INTO postventa.productos (
+                reclamo_id, cantidad_reclamo
+            ) VALUES (
+                :reclamo_id, :cantidad
+            ) RETURNING id_producto
+        """)
+
+        result = db.execute(insert_producto, {"reclamo_id": reclamo_id, "cantidad": producto_data.cantidad})
+        db.commit()
+        producto_id = result.fetchone()[0]
+
+        # Insertar archivos
+        insert_archivo = text("""
+            INSERT INTO postventa.archivos (tipo_formulario, reclamo_id, archivo_url, tipo_archivo)
+            VALUES ('Reclamo', :reclamo_id, :archivo_url, :tipo_archivo)
+        """)
+
+        archivos_insertados = []
+        for file in archivo_data.images + archivo_data.videos:
+            archivo_url = f"/uploads/{file.filename}"
+            tipo_archivo = file.filename.split('.')[-1].upper()
+
+            db.execute(insert_archivo, {
+                "reclamo_id": reclamo_id,
+                "archivo_url": archivo_url,
+                "tipo_archivo": tipo_archivo
+            })
+            archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
+        
+        db.commit()
+
+        # Construir respuesta con toda la data en formato lineal
+        response_data = {
+            "estado": 200,
+            "mensaje": "Reclamo registrado correctamente.",
+            "id_documento": documento_id,
+            "id_reclamo": reclamo_id,
+            "id_producto": producto_id,
+            "usuarios_id": usuarios_id,
+            "tipo_usuarios_id": tipo_usuarios_id,
+            **request_dict,  # Agregar todos los campos de form_data de manera lineal
+            "archivos": archivos_insertados  # Mantener los archivos como lista
+        }
+
+        return JSONResponse(status_code=200, content=response_data)
+
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
+
+
 
 @router.get("/consultar-estado-reclamo-queja")
 def consultar_estado_reclamo_queja(
@@ -633,6 +818,124 @@ def registrar_queja(
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
 
+@router.post("/registrar-queja-servicio")
+def registrar_queja_servicio(
+    form_data: QuejaServicioForm = Depends(),
+    archivo_data: ArchivoServicioForm = Depends(),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+
+    token = credentials.credentials
+
+    # Obtener `usuarios_id` desde `USUARIOS_TOKENS`
+    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_token = db.execute(query_token, {"token": token}).fetchone()
+
+    if not result_token:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+    usuarios_id = result_token[0]
+
+    # Obtener `tipo_usuarios_id` desde `USUARIOS`
+    query_usuario = text("SELECT tipo_usuarios_id, empresa_id FROM postventa.usuarios WHERE id = :usuarios_id")
+    result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado"})
+
+    tipo_usuarios_id, empresa_id = result_usuario
+
+    # Validamos si es trabajador o cliente
+    es_trabajador = empresa_id is not None
+
+    # Convertir form_data a diccionario
+    request_dict = form_data.__dict__
+
+    # Manejo de errores
+    errores = {}
+
+    # Validación de campos obligatorios
+    campos_obligatorios = [
+        "tipo_queja", "motivo", "fecha_queja", "descripcion",
+        "cliente", "dni", "nombres", "apellidos", "correo", "telefono"
+    ]
+
+    for campo in campos_obligatorios:
+        if getattr(form_data, campo, None) is None or str(getattr(form_data, campo)).strip() == "":
+            errores.setdefault(campo, []).append("Campo obligatorio")
+
+    # Validar archivos
+    if not archivo_data.images and not archivo_data.videos:
+        errores.setdefault("archivos", []).append("Debe adjuntar al menos un archivo")
+
+    # Si hay errores, devolver 422 con todos los errores detectados
+    if errores:
+        return JSONResponse(
+            status_code=422,
+            content={"errores": errores, "estado": 422, "mensaje": "No es posible procesar los datos enviados."}
+        )
+
+    try:
+        # Insertar en la tabla QUEJAS
+        insert_queja = text("""
+            INSERT INTO postventa.quejas (
+                usuarios_id, tipo_usuarios_id, tipo_queja,tipog, motivos_servicio_id,
+                fecha_queja, descripcion, cliente_ruc_dni, dni_solicitante, nombre, apellido,
+                email, telefono, estado, fecha_creacion
+            ) VALUES (
+                :usuarios_id, :tipo_usuarios_id, :tipo_queja, 'G2', :motivo,
+                :fecha_queja, :descripcion, :cliente, :dni, :nombres, :apellidos,
+                :correo, :telefono, 'Registrada', CURRENT_TIMESTAMP
+            ) RETURNING id_queja
+        """)
+
+        result = db.execute(insert_queja, {
+            **request_dict,
+            "usuarios_id": usuarios_id,
+            "tipo_usuarios_id": tipo_usuarios_id
+        })
+        db.commit()
+        queja_id = result.fetchone()[0]
+
+        # Insertar archivos en la tabla ARCHIVOS
+        insert_archivo = text("""
+            INSERT INTO postventa.archivos (tipo_formulario, queja_id, archivo_url, tipo_archivo)
+            VALUES ('Queja', :queja_id, :archivo_url, :tipo_archivo)
+        """)
+
+        archivos_insertados = []
+        for file in archivo_data.images + archivo_data.videos:
+            archivo_url = f"/uploads/{file.filename}"
+            tipo_archivo = file.filename.split('.')[-1].upper()
+
+            db.execute(insert_archivo, {
+                "queja_id": queja_id,
+                "archivo_url": archivo_url,
+                "tipo_archivo": tipo_archivo
+            })
+            archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
+
+        db.commit()
+
+        # Construir respuesta con toda la data en formato lineal
+        response_data = {
+            "estado": 200,
+            "mensaje": "Queja registrada correctamente.",
+            "id_queja": queja_id,
+            "usuarios_id": usuarios_id,
+            "tipo_usuarios_id": tipo_usuarios_id,
+            **request_dict,  # Agregar todos los campos de form_data de manera lineal
+            "archivos": archivos_insertados  # Mantener los archivos como lista
+        }
+
+        return JSONResponse(status_code=200, content=response_data)
+
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
+
+
 @router.get("/buscar-documento")
 async def buscar_documento(
     tipo_documento: int = Query(..., description="1 para BOLETA, 2 para FACTURA, 3 para NOTA DE VENTA"),
@@ -709,3 +1012,6 @@ async def buscar_documento(
     
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
+
+
+

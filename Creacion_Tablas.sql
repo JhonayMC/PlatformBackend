@@ -325,3 +325,8 @@ INSERT INTO postventa.motivos_servicio (nombre) VALUES
 
 
 
+ALTER TABLE postventa.documentos
+    DROP COLUMN cliente_ruc_dni,
+    DROP COLUMN provincia,
+    ADD COLUMN cliente VARCHAR(150) NULL,
+    ADD COLUMN departamento VARCHAR(100) NULL;

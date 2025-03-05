@@ -40,3 +40,4 @@ PLATAFORMA_POST_VENTA_BACKEND/
 └── requirements.txt
 
 pip install python-jose>=3.0.0
+pip install python-multipart
