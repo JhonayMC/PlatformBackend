@@ -133,125 +133,64 @@ ALTER TABLE POSTVENTA.USUARIOS ADD COLUMN empresa_id int;
 
 
 --TABLAS PARA LOS FORMULARIOS
--- Tabla: DOCUMENTOS
-CREATE TABLE postventa.documentos (
-    id_documento BIGSERIAL PRIMARY KEY,
-    tipo_correlativos_id BIGINT NOT NULL,
-    serie VARCHAR(4),
-    correlativo VARCHAR(8) NOT NULL,
-    fecha_venta DATE NOT NULL,
-    provincia VARCHAR(100) NOT NULL,
-    n_interno VARCHAR(20) NOT NULL,
-    guia_remision VARCHAR(20),
-    sucursal VARCHAR(100) NOT NULL,
-    almacen VARCHAR(100) NOT NULL,
-    condicion_pago VARCHAR(10) CHECK (condicion_pago IN ('Crédito', 'Contado')),
-    vendedor VARCHAR(100) NOT NULL,
-    transportista VARCHAR(100),
-    usuarios_id BIGINT NOT NULL,
-    cliente_ruc_dni VARCHAR(11) NOT NULL,
-    CONSTRAINT fk_documentos_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_documentos_tipo_correlativos FOREIGN KEY (tipo_correlativos_id) REFERENCES postventa.tipo_correlativos(id)
-);
 
--- Tabla: RECLAMOS
-CREATE TABLE postventa.reclamos (
-    id_reclamo BIGSERIAL PRIMARY KEY,
-    documento_id BIGINT NOT NULL,
+
+CREATE TABLE postventa.formularios (
     usuarios_id BIGINT NOT NULL,
     tipo_usuarios_id BIGINT NOT NULL,
-    dni VARCHAR(15) NOT NULL,
+    tipo_correlativos_id INT,
+    reclamo INT,
+    queja_servicio INT,
+    queja_producto INT,
+    motivos_servicio_id INT,
+    motivos_producto_id INT,
+    tipo_queja VARCHAR(2) NULL,
+    serie VARCHAR(4) NULL,
+    correlativo VARCHAR(8) NULL,
+    cliente VARCHAR(25) NOT NULL,
+    dni VARCHAR(8) NOT NULL, 
     nombres VARCHAR(100) NOT NULL,
     apellidos VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     telefono VARCHAR(15) NOT NULL,
-    detalle_reclamo TEXT NOT NULL,
-    estado VARCHAR(20) CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado')),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    producto_id INT,
+    productO_cantidad INT,
+    estado VARCHAR(20) CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado', 'Registrada')),
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    detalle_queja TEXT NULL,
     placa_vehiculo VARCHAR(8),
     modelo_vehiculo VARCHAR(50),
     marca VARCHAR(50),
     modelo_motor VARCHAR(50),
     anio INT,
     tipo_operacion_id INT,
-    clasificacion_venta VARCHAR(100),
-    potencial_venta VARCHAR(100),
     producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
     fecha_instalacion DATE,
     horas_uso_reclamo INT,
     km_instalacion INT,
     km_actual INT,
     km_recorridos INT,
-    CONSTRAINT fk_reclamos_documentos FOREIGN KEY (documento_id) REFERENCES postventa.documentos(id_documento),
-    CONSTRAINT fk_reclamos_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_reclamos_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
-    CONSTRAINT fk_reclamos_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operacion(id)
+    detalle_reclamo TEXT,
+    CONSTRAINT fk_formularios_tipo_correlativos FOREIGN KEY (tipo_correlativos_id) REFERENCES postventa.tipo_correlativos(id),
+    CONSTRAINT fk_formularios_motivos_servicio FOREIGN KEY (motivos_servicio_id) REFERENCES postventa.motivos_servicio(id),
+    CONSTRAINT fk_formularios_motivos_producto FOREIGN KEY (motivos_producto_id) REFERENCES postventa.motivos_producto(id),
+    CONSTRAINT fk_formularios_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
+    CONSTRAINT fk_formularios_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
+    CONSTRAINT fk_formularios_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operaciones(id)
 );
-
--- Tabla: QUEJAS
-CREATE TABLE postventa.quejas (
-    id_queja BIGSERIAL PRIMARY KEY,
-    documento_id BIGINT NULL,
-    usuarios_id BIGINT NOT NULL,
-    tipo_usuarios_id BIGINT NOT NULL,
-    tipo_queja VARCHAR(20) CHECK (tipo_queja IN ('Producto', 'Servicio')),
-    tipog VARCHAR(2) CHECK (tipog IN ('G1', 'G2')),
-    motivos_producto_id INT,
-    motivos_servicio_id INT
-    fecha_queja DATE,
-    fecha_venta DATE,
-    descripcion TEXT NOT NULL,
-    cliente_ruc_dni VARCHAR(11) NOT NULL,
-    dni_solicitante VARCHAR(8) NOT NULL,
-    nombre VARCHAR(100) NOT NULL,
-    apellido VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL,
-    telefono VARCHAR(15) NOT NULL,
-    estado VARCHAR(20) CHECK (estado IN ('Registrada','Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede')),
-    clasificacion_venta VARCHAR(100),
-    potencial_venta VARCHAR(100),
-    producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_quejas_documentos FOREIGN KEY (documento_id) REFERENCES postventa.documentos(id_documento),
-    CONSTRAINT fk_quejas_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_quejas_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
-    CONSTRAINT fk_quejas_motivos_producto FOREIGN KEY (motivos_producto_id) REFERENCES postventa.motivos_producto(id),
-    CONSTRAINT fk_quejas_motivos_servicio FOREIGN KEY (motivos_servicio_id) REFERENCES postventa.motivos_servicio(id)
-);
-
--- Tabla: PRODUCTOS_RECLAMOS
-CREATE TABLE postventa.productos (
-    id_producto BIGSERIAL PRIMARY KEY,
-    reclamo_id BIGINT NULL UNIQUE, -- Solo un producto por reclamo
-    queja_id BIGINT NULL,
-    itm VARCHAR(50),
-    lin VARCHAR(50),
-    org VARCHAR(50),
-    marc VARCHAR(50),
-    descrp_marc VARCHAR(100),
-    fabrica VARCHAR(50),
-    articulo VARCHAR(50),
-    descripcion TEXT,
-    precio DECIMAL(10,2),
-    cantidad_reclamo INT NOT NULL CHECK (cantidad_reclamo > 0),
-    und_reclamo VARCHAR(50),
-    CONSTRAINT fk_productos_reclamos FOREIGN KEY (reclamo_id) REFERENCES postventa.reclamos(id_reclamo),
-    CONSTRAINT fk_productos_quejas FOREIGN KEY (queja_id) REFERENCES postventa.quejas(id_queja)
-);
-
 -- Tabla: ARCHIVOS
 CREATE TABLE postventa.archivos (
     id_archivo BIGSERIAL PRIMARY KEY,
-    tipo_formulario VARCHAR(20) CHECK (tipo_formulario IN ('Reclamo', 'Queja')),
-    reclamo_id BIGINT,
-    queja_id BIGINT,
     archivo_url VARCHAR(255) NOT NULL,
     tipo_archivo VARCHAR(10) CHECK (tipo_archivo IN ('JPG', 'PNG', 'MP4', 'PDF', 'DOC')),
-    CONSTRAINT fk_archivos_reclamos FOREIGN KEY (reclamo_id) REFERENCES postventa.reclamos(id_reclamo),
-    CONSTRAINT fk_archivos_quejas FOREIGN KEY (queja_id) REFERENCES postventa.quejas(id_queja)
+    formulario_id INT,
+    CONSTRAINT fk_archivos_formularios FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id)
 );
+
+ALTER TABLE postventa.archivos 
+ADD CONSTRAINT archivos_tipo_archivo_check 
+CHECK (tipo_archivo IN ('JPG', 'PNG', 'PDF', 'DOCX', 'MP4', 'PPTX'));  -- Agregar los tipos permitidos
+
 
 CREATE TABLE postventa.tipo_correlativos (
     id BIGSERIAL PRIMARY KEY,
@@ -323,10 +262,3 @@ INSERT INTO postventa.motivos_servicio (nombre) VALUES
 ('Desabasto'),
 ('Falta de información');
 
-
-
-ALTER TABLE postventa.documentos
-    DROP COLUMN cliente_ruc_dni,
-    DROP COLUMN provincia,
-    ADD COLUMN cliente VARCHAR(150) NULL,
-    ADD COLUMN departamento VARCHAR(100) NULL;

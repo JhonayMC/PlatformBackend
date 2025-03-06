@@ -3,217 +3,6 @@ from typing import List, Optional
 from datetime import date
 from fastapi import Form, UploadFile, File
 
-# Modelo para la carga de archivos
-class ArchivoRequest(BaseModel):
-    archivo_url: str
-    tipo_archivo: str = Field(..., pattern="^(JPG|PNG|MP4|PDF|DOC)$")  # Cambio aquí
-
-# Modelo para productos afectados en el reclamo
-class ProductoReclamoRequest(BaseModel):
-    itm: str
-    lin: str
-    org: str
-    marc: str
-    descrp_marc: str
-    fabrica: str
-    articulo: str
-    descripcion: str
-    precio: Optional[float] = None
-    cantidad_reclamo: int
-    und_reclamo: str
-
-# Modelo principal para guardar reclamos
-class ReclamoRequest(BaseModel):
-    tipo_correlativos_id: int    
-    serie: Optional[str] = Field(None, min_length=4, max_length=4)
-    correlativo: str = Field(..., min_length=7, max_length=8)
-    fecha_venta: date
-    provincia: str
-    n_interno: str
-    guia_remision: Optional[str]
-    sucursal: str
-    almacen: str
-    condicion_pago: str
-    vendedor: str
-    transportista: Optional[str]
-    cliente_ruc_dni: str
-    dni: str
-    nombres: str
-    apellidos: str
-    email: str
-    telefono: str
-    clasificacion_venta: Optional[str] = None  
-    potencial_venta: Optional[str] = None  
-    producto_tienda: Optional[str] = None  
-    placa_vehiculo: Optional[str]
-    modelo_vehiculo: Optional[str]
-    marca: Optional[str]
-    modelo_motor: Optional[str]
-    anio: Optional[int]
-    tipo_operacion_id: int
-    fecha_instalacion: Optional[date]
-    horas_uso_reclamo: Optional[int]
-    km_instalacion: Optional[int]
-    km_actual: Optional[int]
-    km_recorridos: Optional[int]
-    detalle_reclamo: str
-    productos: List[ProductoReclamoRequest]
-    archivos: List[ArchivoRequest]
-
-class ProductoRequest(BaseModel):
-    itm: str
-    lin: str
-    org: str
-    marc: str
-    descrp_marc: str
-    fabrica: str
-    articulo: str
-    descripcion: str
-    precio: Optional[float] = None
-    cantidad_reclamo: int
-    und_reclamo: str
-
-#probado la funcionalidad con el FormData
-# Modelo para productos en FormData con ID
-class ProductoReclamoForm:
-    def __init__(
-        self,
-        #form_3_itm: str = Form(...),
-        #form_3_lin: str = Form(...),
-        #form_3_org: str = Form(...),
-        #form_3_marc: str = Form(...),
-        #form_3_descrp_marc: str = Form(...),
-        #form_3_fabrica: str = Form(...),
-        #form_3_articulo: str = Form(...),
-        #form_3_descripcion: str = Form(...),
-        form_3_precio: Optional[float] = Form(None),
-        form_3_cantidad: int = Form(...),
-        #form_3_und_reclamo: str = Form(...)
-    ):
-        #self.itm = form_3_itm
-        #self.lin = form_3_lin
-        #self.org = form_3_org
-        #self.marc = form_3_marc
-        #self.descrp_marc = form_3_descrp_marc
-        #self.fabrica = form_3_fabrica
-        #self.articulo = form_3_articulo
-        #self.descripcion = form_3_descripcion
-        self.precio = form_3_precio
-        self.cantidad = form_3_cantidad
-        #self.und_reclamo = form_3_und_reclamo
-
-# Modelo para archivos en FormData
-class ArchivoForm:
-    def __init__(
-        self,
-        form_5_images: List[UploadFile] = File(None),
-        form_5_videos: List[UploadFile] = File(None),
-    ):
-        self.images = form_5_images
-        self.videos = form_5_videos
-
-# Modelo principal del reclamo usando FormData
-class ReclamoForm:
-    def __init__(
-        self,
-        form_1_tipocorrelativo_id: int = Form(...),
-        form_1_serie: Optional[str] = Form(None),
-        form_1_correlativo: str = Form(...),
-        form_1_fechaventa: str = Form(...),
-        form_1_nrointerno: str = Form(...),
-        form_1_guiaremision: Optional[str] = Form(None),
-        form_1_condicionpago: str = Form(...),
-        form_1_vendedor: str = Form(...),
-        form_1_departamento: str = Form(...),
-        form_1_sucursal: str = Form(...),
-        form_1_almacen: str = Form(...),
-        form_1_transportista: Optional[str] = Form(None),
-
-        form_2_cliente: str = Form(...),
-        form_2_dni: str = Form(...),
-        form_2_nombres: str = Form(...),
-        form_2_apellidos: str = Form(...),
-        form_2_correo: str = Form(...),
-        form_2_telefono: str = Form(...),
-
-        form_4_nroplaca: Optional[str] = Form(None),
-        form_4_marca: Optional[str] = Form(None),
-        form_4_modelo: Optional[str] = Form(None),
-        form_4_anio: Optional[int] = Form(None),
-        form_4_motor: Optional[str] = Form(None),
-        form_4_tipoOperacion: int = Form(...),
-        form_4_fechaInstalacion: Optional[str] = Form(None),
-        form_4_horaUso: Optional[int] = Form(None),
-        form_4_kmInstalacion: Optional[int] = Form(None),
-        form_4_kmActual: Optional[int] = Form(None),
-
-        form_5_descripcion: str = Form(...),
-    ):
-        self.tipocorrelativo_id = form_1_tipocorrelativo_id
-        self.serie = form_1_serie
-        self.correlativo = form_1_correlativo
-        self.fechaventa = form_1_fechaventa
-        self.nrointerno = form_1_nrointerno
-        self.guiaremision = form_1_guiaremision
-        self.condicionpago = form_1_condicionpago
-        self.vendedor = form_1_vendedor
-        self.departamento = form_1_departamento
-        self.sucursal = form_1_sucursal
-        self.almacen = form_1_almacen
-        self.transportista = form_1_transportista
-
-        self.cliente = form_2_cliente
-        self.dni = form_2_dni
-        self.nombres = form_2_nombres
-        self.apellidos = form_2_apellidos
-        self.correo = form_2_correo
-        self.telefono = form_2_telefono
-
-        self.nroplaca = form_4_nroplaca
-        self.marca = form_4_marca
-        self.modelo = form_4_modelo
-        self.anio = form_4_anio
-        self.motor = form_4_motor
-        self.tipoOperacion = form_4_tipoOperacion
-        self.fechaInstalacion = form_4_fechaInstalacion
-        self.horaUso = form_4_horaUso
-        self.kmInstalacion = form_4_kmInstalacion
-        self.kmActual = form_4_kmActual
-
-        self.descripcion = form_5_descripcion
-
-class QuejaRequest(BaseModel):
-    tipo_queja: str
-    motivos_producto_id: Optional[int] = None
-    motivos_servicio_id: Optional[int] = None
-    descripcion: str
-    cliente_ruc_dni: str
-    dni: str
-    nombres: str
-    apellidos: str
-    email: str
-    telefono: str
-    clasificacion_venta: Optional[str] = None  
-    potencial_venta: Optional[str] = None  
-    producto_tienda: Optional[str] = None  
-    #tipog: str
-    # Campos opcionales para tipo "Servicio"
-    fecha_queja: Optional[str] = None
-    # Campos opcionales para tipo "Producto"
-    tipo_correlativos_id: Optional[int] = None
-    serie: Optional[str] = None
-    correlativo: Optional[str] = None
-    fecha_venta: Optional[str] = None
-    provincia: Optional[str] = None
-    n_interno: Optional[str] = None
-    guia_remision: Optional[str] = None
-    sucursal: Optional[str] = None
-    almacen: Optional[str] = None
-    condicion_pago: Optional[str] = None
-    vendedor: Optional[str] = None
-    transportista: Optional[str] = None
-    productos: Optional[List[ProductoRequest]] = None
-    archivos: List[ArchivoRequest]
 
 class ConsultarEstadoRequest(BaseModel):
     tipo_correlativos_id: Optional[int] = None
@@ -233,7 +22,7 @@ class ArchivoServicioForm:
 class QuejaServicioForm:
     def __init__(
         self,
-        tipo_queja: str = Form(...),
+        tipo_queja: str = Form("G2"), 
         form_1_motivo: int = Form(...),
         form_2_fecha: str = Form(...),
         form_2_descripcion: str = Form(...),
@@ -255,6 +44,141 @@ class QuejaServicioForm:
         self.correo = form_3_correo
         self.telefono = form_3_telefono
 
+class ReclamoProductoForm:
+    def __init__(
+        self,
+        form_1_motivo: int = Form(...),  
+        form_2_tipocorrelativo_id: int = Form(...),
+        form_2_serie: str = Form(...),
+        form_2_correlativo: str = Form(...),
+        form_2_fechaventa: str = Form(...),
+        form_2_nrointerno: str = Form(...),
+        form_2_guiaremision: str = Form(...),
+        form_2_condicionpago: str = Form(...),
+        form_2_vendedor: str = Form(...),
+        form_2_departamento: str = Form(...),
+        form_2_sucursal: str = Form(...),
+        form_2_almacen: str = Form(...),
+        form_2_transportista: str = Form(...),
+        form_3_cliente: str = Form(...),
+        form_3_dni: str = Form(...),
+        form_3_nombres: str = Form(...),
+        form_3_apellidos: str = Form(...),
+        form_3_correo: str = Form(...),
+        form_3_telefono: str = Form(...),
+        form_4_producto_id: str = Form(...),  
+        form_4_cantidad: int = Form(...),  
+        form_5_descripcion: str = Form(...)
+    ):
+        self.motivos_producto_id = form_1_motivo
+        self.tipo_correlativos_id = form_2_tipocorrelativo_id
+        self.serie = form_2_serie
+        self.correlativo = form_2_correlativo
+        self.fecha_venta = form_2_fechaventa
+        self.nro_interno = form_2_nrointerno
+        self.guia_remision = form_2_guiaremision
+        self.condicion_pago = form_2_condicionpago
+        self.vendedor = form_2_vendedor
+        self.departamento = form_2_departamento
+        self.sucursal = form_2_sucursal
+        self.almacen = form_2_almacen
+        self.transportista = form_2_transportista
+        self.cliente = form_3_cliente
+        self.dni = form_3_dni
+        self.nombres = form_3_nombres
+        self.apellidos = form_3_apellidos
+        self.correo = form_3_correo
+        self.telefono = form_3_telefono
+        self.producto_id = form_4_producto_id
+        self.producto_cantidad = form_4_cantidad
+        self.detalle_reclamo = form_5_descripcion
+
+class ArchivoReclamoForm:
+    def __init__(
+        self,
+        form_5_images: List[UploadFile] = File(None),
+        form_5_videos: List[UploadFile] = File(None),
+    ):
+        self.form_5_images = form_5_images
+        self.form_5_videos = form_5_videos
+
+class ReclamoForm:
+    def __init__(
+        self,
+        form_1_tipocorrelativo_id: int = Form(...),
+        form_1_serie: str = Form(...),
+        form_1_correlativo: str = Form(...),
+        form_1_fechaventa: str = Form(...),
+        form_1_nrointerno: str = Form(...),
+        form_1_guiaremision: str = Form(...),
+        form_1_condicionpago: str = Form(...),
+        form_1_vendedor: str = Form(...),
+        form_1_departamento: str = Form(...),
+        form_1_sucursal: str = Form(...),
+        form_1_almacen: str = Form(...),
+        form_1_transportista: str = Form(...),
+        form_2_cliente: str = Form(...),
+        form_2_dni: str = Form(...),
+        form_2_nombres: str = Form(...),
+        form_2_apellidos: str = Form(...),
+        form_2_correo: str = Form(...),
+        form_2_telefono: str = Form(...),
+        form_3_producto_id: str = Form(...),
+        form_3_cantidad: int = Form(...),
+        form_4_nroplaca: str = Form(...),
+        form_4_marca: str = Form(...),
+        form_4_modelo: str = Form(...),
+        form_4_anio: int = Form(...),
+        form_4_motor: str = Form(...),
+        form_4_tipoOperacion: int = Form(...),
+        form_4_fechaInstalacion: str = Form(...),
+        form_4_horaUso: int = Form(...),
+        form_4_kmInstalacion: int = Form(...),
+        form_4_kmActual: int = Form(...),
+        form_4_kmRecorridos: int = Form(...),
+        form_5_descripcion: str = Form(...)
+    ):
+        self.tipo_correlativos_id = form_1_tipocorrelativo_id
+        self.serie = form_1_serie
+        self.correlativo = form_1_correlativo
+        self.fecha_venta = form_1_fechaventa
+        self.nro_interno = form_1_nrointerno
+        self.guia_remision = form_1_guiaremision
+        self.condicion_pago = form_1_condicionpago
+        self.vendedor = form_1_vendedor
+        self.departamento = form_1_departamento
+        self.sucursal = form_1_sucursal
+        self.almacen = form_1_almacen
+        self.transportista = form_1_transportista
+        self.cliente = form_2_cliente
+        self.dni = form_2_dni
+        self.nombres = form_2_nombres
+        self.apellidos = form_2_apellidos
+        self.correo = form_2_correo
+        self.telefono = form_2_telefono
+        self.producto_id = form_3_producto_id
+        self.producto_cantidad = form_3_cantidad
+        self.placa_vehiculo = form_4_nroplaca
+        self.marca = form_4_marca
+        self.modelo_vehiculo = form_4_modelo
+        self.anio = form_4_anio
+        self.modelo_motor = form_4_motor
+        self.tipo_operacion_id = form_4_tipoOperacion
+        self.fecha_instalacion = form_4_fechaInstalacion
+        self.horas_uso_reclamo = form_4_horaUso
+        self.km_instalacion = form_4_kmInstalacion
+        self.km_actual = form_4_kmActual
+        self.km_recorridos = form_4_kmRecorridos
+        self.detalle_reclamo = form_5_descripcion
+
+class ArchivoReclamoForm:
+    def __init__(
+        self,
+        form_5_images: List[UploadFile] = File(None),
+        form_5_videos: List[UploadFile] = File(None),
+    ):
+        self.form_5_images = form_5_images
+        self.form_5_videos = form_5_videos
 
 
 # Datos simulados predefinidos en una estructura de diccionario

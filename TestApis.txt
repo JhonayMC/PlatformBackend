@@ -66,292 +66,82 @@ Poner el codigo que llega al correo
 }
 
 ----------
-Probar apis de los Formularios
-RECLAMOS
-http://127.0.0.1:8001/api/v1/registrar-formulario
+RECLAMO DE PRODUCTO
+form_1_tipocorrelativo_id: 1
+form_1_serie: 3453
+form_1_correlativo: 34534534
+form_1_fechaventa: 2025-01-01
+form_1_nrointerno: B1234
+form_1_guiaremision: G001-12345678
+form_1_condicionpago: Contado
+form_1_vendedor: Vendedor Boleta
+form_1_departamento: Lima
+form_1_sucursal: Sucursal Boleta
+form_1_almacen: Almacén Boleta
+form_1_transportista: Transportista Boleta
+form_2_cliente: Samuel Roman Tito
+form_2_dni: 64564564
+form_2_nombres: SAMUEL
+form_2_apellidos: ROMAN TITO
+form_2_correo: ADAW@FEFE.EE
+form_2_telefono: 324234
+form_3_producto_id: P001
+form_3_cantidad: 1
+form_4_nroplaca: wr3r3
+form_4_marca: Toyota
+form_4_modelo: Corolla
+form_4_anio: 2022
+form_4_motor: 1.8L VVT-i
+form_4_tipoOperacion: 2
+form_4_fechaInstalacion: 2025-03-04
+form_4_horaUso: 23
+form_4_kmInstalacion: 233
+form_4_kmActual: 23233
+from_4_kmRecorridos: 255
+form_5_descripcion: werwerf
+form_5_images: [object File],[object File],[object File],[object File]
+form_5_videos: [object File]
 
-Pasar el token generado al inicar sesión
+RECLAMO DE QUEJAS POR SERVICIO
+tipo_queja: Servicio 
+form_1_motivo: 1 
+form_2_fecha: 2025-03-06 
+form_2_descripcion: dfgdfgg 
+form_2_images: [object File] 
+form_2_videos: [object File] 
+form 3 cliente: 32132132 
+form 3 dni: 32423423 
+form_3_nombres: SAMUEL 
+form_3_apellidos: ROMAN TITO 
+form_3_correo: WERWER@FEE.EE 
+form_3_telefono: 23425
 
-Body:
-{
-    "tipo_correlativos_id": "2",
-    "serie": "4321",
-    "correlativo": "12345672",
-    "fecha_venta": "2024-02-20",
-    "provincia": "Ica",
-    "n_interno": "INT-002",
-    "guia_remision": "GR-564123",
-    "sucursal": "Sucursal Ica",
-    "almacen": "Almacén Provincia",
-    "condicion_pago": "Contado",
-    "vendedor": "Luis Jose Suarez",
-    "transportista": "Transporte Rápido",
-    "cliente_ruc_dni": "20123456669",
-    "dni": "45612398",
-    "nombres": "Jose",
-    "apellidos": "Lito",
-    "email": "JoseLito@example.com",
-    "telefono": "987654321",
-    "placa_vehiculo": "XYZ123",
-    "modelo_vehiculo": "Toyota Corolla",
-    "marca": "Toyota",
-    "modelo_motor": "1.8L VVT-i",
-    "anio": 2023,
-    "tipo_operacion_id": 2,
-    "fecha_instalacion": "2024-02-10",
-    "horas_uso_reclamo": 500,
-    "km_instalacion": 10000,
-    "km_actual": 15000,
-    "km_recorridos": 5000,
-    "detalle_reclamo": "El motor presenta fallas en el arranque",
-    "productos": [
-        {
-            "itm": "004",
-            "lin": "Línea C",
-            "org": "Org1",
-            "marc": "MarcaY",
-            "descrp_marc": "Descripción MarcaY",
-            "fabrica": "Fábrica C",
-            "articulo": "Artículo124",
-            "descripcion": "Motor defectuoso",
-            "precio": 2500.50,
-            "cantidad_reclamo": 1,
-            "und_reclamo": "Unidad"
-        }
-    ],
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/imagen11.jpg",
-            "tipo_archivo": "JPG"
-        }
-    ]
-}
-CUANDO SON TRABAJADORES:
-{
-    "tipo_correlativos_id": "2",
-    "serie": "4321",
-    "correlativo": "12345672",
-    "fecha_venta": "2024-02-20",
-    "provincia": "Ica",
-    "n_interno": "INT-002",
-    "guia_remision": "GR-564123",
-    "sucursal": "Sucursal Ica",
-    "almacen": "Almacén Provincia",
-    "condicion_pago": "Contado",
-    "vendedor": "Luis Jose Suarez",
-    "transportista": "Transporte Rápido",
-    "cliente_ruc_dni": "20123456669",
-    "dni": "45612398",
-    "nombres": "Jose",
-    "apellidos": "Lito",
-    "email": "JoseLito@example.com",
-    "telefono": "987654321",
-    "clasificacion_venta": "XXXY",
-    "potencial_venta": "informacion",
-    "producto_tienda": "S",
-    "placa_vehiculo": "XYZ123",
-    "modelo_vehiculo": "Toyota Corolla",
-    "marca": "Toyota",
-    "modelo_motor": "1.8L VVT-i",
-    "anio": 2023,
-    "tipo_operacion_id": 2,
-    "fecha_instalacion": "2024-02-10",
-    "horas_uso_reclamo": 500,
-    "km_instalacion": 10000,
-    "km_actual": 15000,
-    "km_recorridos": 5000,
-    "detalle_reclamo": "El motor presenta fallas en el arranque",
-    "productos": [
-        {
-            "itm": "004",
-            "lin": "Línea C",
-            "org": "Org1",
-            "marc": "MarcaY",
-            "descrp_marc": "Descripción MarcaY",
-            "fabrica": "Fábrica C",
-            "articulo": "Artículo124",
-            "descripcion": "Motor defectuoso",
-            "precio": 2500.50,
-            "cantidad_reclamo": 1,
-            "und_reclamo": "Unidad"
-        }
-    ],
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/imagen11.jpg",
-            "tipo_archivo": "JPG"
-        }
-    ]
-}
-
-
-QUEJAS
-1. Por producto
-http://127.0.0.1:8001/api/v1/registrar-quejas
-
-Pasar el token generado al inicar sesión
-
-{
-    "tipo_queja": "Producto",
-    "motivos_producto_id": 3,
-    "tipo_correlativos_id": "1",
-    "serie": "1234",
-    "correlativo": "12345678",
-    "fecha_venta": "2024-02-20",
-    "provincia": "Lima",
-    "n_interno": "INT-001",
-    "guia_remision": "GR-123456",
-    "sucursal": "Sucursal Lima",
-    "almacen": "Almacen Central",
-    "condicion_pago": "Crédito",
-    "vendedor": "Jose Vasquez",
-    "transportista": "Transporte Rapido",
-    "cliente_ruc_dni": "20123456789",
-    "dni": "12345678",
-    "nombres": "Carlos",
-    "apellidos": "Gómez",
-    "email": "carlos.gomez@example.com",
-    "telefono": "987654321",
-    "productos": [
-        {
-            "itm": "005",
-            "lin": "Línea A",
-            "org": "Org1",
-            "marc": "MarcaX",
-            "descrp_marc": "Descripción MarcaX",
-            "fabrica": "Fábrica B",
-            "articulo": "Articulo123",
-            "descripcion": "Motor defectuoso",
-            "precio": 2500.50,
-            "cantidad_reclamo": 1,
-            "und_reclamo": "Unidad"
-        }
-    ],
-    "descripcion": "El motor presenta fallas en el arranque",
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/imagen1.jpg",
-            "tipo_archivo": "JPG"
-        }
-    ]
-}
-
-CUANDO SON TRABAJADORES:
-{
-    "tipo_queja": "Producto",
-    "motivos_producto_id": 3,
-    "tipo_correlativos_id": "1",
-    "serie": "1234",
-    "correlativo": "12345678",
-    "fecha_venta": "2024-02-20",
-    "provincia": "Lima",
-    "n_interno": "INT-001",
-    "guia_remision": "GR-123456",
-    "sucursal": "Sucursal Lima",
-    "almacen": "Almacen Central",
-    "condicion_pago": "Contado",
-    "vendedor": "Jose Vasquez",
-    "transportista": "Transporte Rapido",
-    "cliente_ruc_dni": "20123456789",
-    "dni": "12345678",
-    "nombres": "Carlos",
-    "apellidos": "Gómez",
-    "email": "carlos.gomez@example.com",
-    "telefono": "987654321",
-    "clasificacion_venta": "YZYZ",
-    "potencial_venta": "informacion",
-    "producto_tienda": "N",
-    "productos": [
-        {
-            "itm": "007",
-            "lin": "Línea B",
-            "org": "Org1",
-            "marc": "MarcaX",
-            "descrp_marc": "Descripción MarcaX",
-            "fabrica": "Fábrica B",
-            "articulo": "Articulo123",
-            "descripcion": "Motor defectuoso",
-            "precio": 2500.50,
-            "cantidad_reclamo": 1,
-            "und_reclamo": "Unidad"
-        }
-    ],
-    "descripcion": "El motor presenta fallas en el arranque",
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/imagen_producto.jpg",
-            "tipo_archivo": "JPG"
-        }
-    ]
-}
-
-
-QUEJAS
-1. Por servicio
-http://127.0.0.1:8001/api/v1/registrar-quejas
-
-Pasar el token generado al inicar sesión
-
-{
-    "tipo_queja": "Servicio",
-    "motivos_servicio_id": 3,
-    "fecha_queja": "2024-02-20",
-    "descripcion": "Falta de productos en almacén",
-    "cliente_ruc_dni": "20123456789",
-    "dni": "12345678",
-    "nombres": "Romann",
-    "apellidos": "Rodriguez",
-    "email": "romarodriguez@example.com",
-    "telefono": "987654320",
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/evidencia1.jpg",
-            "tipo_archivo": "JPG"
-        },
-        {
-            "archivo_url": "https://example.com/evidencia2.pdf",
-            "tipo_archivo": "PDF"
-        }
-    ]
-}
-
-CUANDO SON TRABAJADORES:
-{
-    "tipo_queja": "Servicio",
-    "motivos_servicio_id": 3,
-    "fecha_queja": "2024-02-26",
-    "descripcion": "Falta de productos en almacén",
-    "cliente_ruc_dni": "20123456789",
-    "dni": "12345678",
-    "nombres": "Romann",
-    "apellidos": "Rodriguez",
-    "email": "romarodriguez@example.com",
-    "telefono": "987654320",
-    "clasificacion_venta": "YZYZ",
-    "potencial_venta": "informacion",
-    "archivos": [
-        {
-            "archivo_url": "https://example.com/evidencia1.jpg",
-            "tipo_archivo": "JPG"
-        },
-        {
-            "archivo_url": "https://example.com/evidencia2.pdf",
-            "tipo_archivo": "PDF"
-        }
-    ]
-}
-
-
-API SIMULADA DE BUSCAR DOCUMENTO
-
-1. Para Boleta
-http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=1&serie=B001&correlativo=12345678
-
-2. Para factura
-http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=2&serie=F001&correlativo=87654321
-
-3. Para Nota de Venta
-http://127.0.0.1:8001/api/v1/buscar-documento?tipo_documento=3&correlativo=1234567
+RECLAMO QUEJAS POR PRODUCTO
+form 1 motivo: 7 
+form 2_tipocorrelativo_id: 1 
+form 2 serie: 4564 
+form 2 correlativo: 64564564 
+form_2_fechaventa: 2026-02-06
+form 2 nrointerno: 81234 
+form_2_guiaremision: G001-12345678 
+form_2_condicionpago: Contado 
+form 2 vendedor: Vendedor Boleta 
+form_2_departamento: Lima 
+form 2 sucursal: Sucursal Boleta 
+form_2_almacen: Almacén Boleta 
+form_2_transportista: Transportista Boleta 
+form 3 cliente: 32132132 
+form 3 dni: 45645645 
+form 3 nombres: SAMUEL 
+form_3_apellidos: ROMAN TITO 
+form 3 correo: SDF@FEFE.EE 
+form_3_telefono: 234234 
+form_4_producto_id: P001 
+form 4_cantidad: 1 
+form_5_descripcion: wrffds 
+form_5_images: [object File], [object File] 
+form_5_videos: [object File] 
+---------------
 
 Para el FRONT:
 
