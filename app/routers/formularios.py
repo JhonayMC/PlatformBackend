@@ -164,14 +164,14 @@ def registrar_reclamo(
                 estado, fecha, fecha_creacion, serie, correlativo, 
                 producto_id, producto_cantidad, detalle_reclamo, 
                 placa_vehiculo, marca, modelo_vehiculo, anio, modelo_motor, tipo_operacion_id,
-                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual, km_recorridos
+                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 1, 0, 0,
                 :cliente, :dni, :nombres, :apellidos, :correo, :telefono,
                 'Generado', CAST(:fecha_venta AS DATE), DEFAULT, :serie, :correlativo,
                 :producto_id, :producto_cantidad, :detalle_reclamo, 
                 :placa_vehiculo, :marca, :modelo_vehiculo, :anio, :modelo_motor, :tipo_operacion_id,
-                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual, :km_recorridos
+                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual
             ) RETURNING id, fecha_creacion
         """)
 
@@ -231,7 +231,6 @@ def registrar_reclamo(
             "horas_uso_reclamo": form_data.horas_uso_reclamo,
             "km_instalacion": form_data.km_instalacion,
             "km_actual": form_data.km_actual,
-            "km_recorridos": form_data.km_recorridos,
             "archivos": archivos_insertados
         }
 
