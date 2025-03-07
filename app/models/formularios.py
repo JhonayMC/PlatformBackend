@@ -135,7 +135,7 @@ class ReclamoForm:
         form_4_horaUso: int = Form(...),
         form_4_kmInstalacion: int = Form(...),
         form_4_kmActual: int = Form(...),
-        form_4_kmRecorridos: int = Form(...),
+        form_4_kmRecorridos: Optional[int] = Form(None),
         form_5_descripcion: str = Form(...)
     ):
         self.tipo_correlativos_id = form_1_tipocorrelativo_id
