@@ -60,17 +60,13 @@ def consultar_estado_reclamo_queja(
 
     tipo_usuarios_id, empresa_id = result_usuario
 
-    # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas desde `formularios`
+    # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas desde formularios
     if empresa_id is None:
         query_formularios = text("""
             SELECT 
-                id, 
-                reclamo, 
-                queja_servicio, 
-                queja_producto, 
-                detalle_reclamo, 
-                detalle_queja, 
-                fecha_creacion
+                id, reclamo, queja_servicio, queja_producto, 
+                detalle_reclamo, detalle_queja, fecha_creacion, fecha_modificacion,
+                estado, motivos_servicio_id, motivos_producto_id
             FROM postventa.formularios
             WHERE usuarios_id = :usuarios_id
         """)
@@ -79,26 +75,51 @@ def consultar_estado_reclamo_queja(
 
         data_completa = []
         for row in result_formularios:
-            id_formulario, reclamo, queja_servicio, queja_producto, detalle_reclamo, detalle_queja, fecha_creacion = row
+            (
+                id_formulario, reclamo, queja_servicio, queja_producto, 
+                detalle_reclamo, detalle_queja, fecha_creacion, fecha_modificacion, estado,
+                motivos_servicio_id, motivos_producto_id
+            ) = row
 
-            # Determinar el prefijo del ID y el detalle a extraer
+            # Determinar el prefijo del ID y el tipo
             if reclamo == 1:
                 prefijo = "R"
-                detalle = detalle_reclamo
-            elif queja_servicio == 1 or queja_producto == 1:
+                tipo = "Falla de producto"
+            elif queja_servicio == 1:
                 prefijo = "Q"
-                detalle = detalle_queja
+                query_motivo = text("SELECT nombre FROM postventa.motivos_servicio WHERE id = :id")
+                result_motivo = db.execute(query_motivo, {"id": motivos_servicio_id}).fetchone()
+                tipo = result_motivo[0] if result_motivo else "Motivo no encontrado"
+            elif queja_producto == 1:
+                prefijo = "Q"
+                query_motivo = text("SELECT nombre FROM postventa.motivos_producto WHERE id = :id")
+                result_motivo = db.execute(query_motivo, {"id": motivos_producto_id}).fetchone()
+                tipo = result_motivo[0] if result_motivo else "Motivo no encontrado"
             else:
                 continue  # Si no es reclamo ni queja, lo ignoramos
 
+            trazabilidad = [
+                {
+                    "estado": estado,
+                    "fecha": fecha_modificacion.strftime("%d/%m/%Y %H:%M"),
+                    "titulo": "Reclamo generado de manera exitosa" if reclamo == 1 else "Queja registrada de manera exitosa",
+                    "archivo": {
+                        "enlace": f"ruta/del/pdf/{prefijo}{id_formulario:05d}.pdf",
+                        "nombre": f"{prefijo}{id_formulario:05d}",
+                        "extensión": ".pdf"
+                    }
+                }
+            ]
+
             data_completa.append({
-                "id": f"{prefijo}{id_formulario}",
-                "detalle": detalle,
-                "fecha_creacion": fecha_creacion.strftime("%d/%m/%Y %H:%M")
+                "id": f"{prefijo}{id_formulario:05d}",
+                "tipo": tipo,
+                "fecha": fecha_creacion.strftime("%d/%m/%Y %H:%M"),
+                "trazabilidad": trazabilidad
             })
 
         # Ordenar por fecha de creación DESC
-        data_completa = sorted(data_completa, key=lambda x: x["fecha_creacion"], reverse=True)
+        data_completa = sorted(data_completa, key=lambda x: x["trazabilidad"][0]["fecha"], reverse=True)
 
         return JSONResponse(
             status_code=200,
@@ -109,6 +130,7 @@ def consultar_estado_reclamo_queja(
     return JSONResponse(
         status_code=400, content={"estado": 400, "mensaje": "Acción no permitida para trabajadores en esta etapa."}
     )
+
 
 @router.post("/registrar-reclamo")
 def registrar_reclamo(
