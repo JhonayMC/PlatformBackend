@@ -37,6 +37,8 @@ def json_serial(obj):
 
 @router.get("/consultar-reclamo-queja")
 def consultar_estado_reclamo_queja(
+    page: int = Query(1, ge=1, description="Número de página"),
+    items_per_page: int = Query(10, ge=1, le=100, description="Elementos por página"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
@@ -62,6 +64,19 @@ def consultar_estado_reclamo_queja(
 
     # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas desde formularios
     if empresa_id is None:
+        # Primero, obtén el conteo total para la metadata de paginación
+        query_count = text("""
+            SELECT COUNT(id)
+            FROM postventa.formularios
+            WHERE usuarios_id = :usuarios_id
+        """)
+        
+        total_items = db.execute(query_count, {"usuarios_id": usuarios_id}).scalar()
+        
+        # Calcula el offset para la paginación
+        skip = (page - 1) * items_per_page
+        
+        # Modifica la consulta para incluir LIMIT y OFFSET para paginación
         query_formularios = text("""
             SELECT 
                 id, reclamo, queja_servicio, queja_producto, 
@@ -69,9 +84,15 @@ def consultar_estado_reclamo_queja(
                 estado, motivos_servicio_id, motivos_producto_id
             FROM postventa.formularios
             WHERE usuarios_id = :usuarios_id
+            ORDER BY fecha_creacion DESC
+            LIMIT :limit OFFSET :offset
         """)
 
-        result_formularios = db.execute(query_formularios, {"usuarios_id": usuarios_id}).fetchall()
+        result_formularios = db.execute(query_formularios, {
+            "usuarios_id": usuarios_id,
+            "limit": items_per_page,
+            "offset": skip
+        }).fetchall()
 
         data_completa = []
         for row in result_formularios:
@@ -118,12 +139,27 @@ def consultar_estado_reclamo_queja(
                 "trazabilidad": trazabilidad
             })
 
-        # Ordenar por fecha de creación DESC
-        data_completa = sorted(data_completa, key=lambda x: x["trazabilidad"][0]["fecha"], reverse=True)
+        # Calcular información de paginación
+        total_pages = (total_items + items_per_page - 1) // items_per_page  # Redondeo hacia arriba
+        
+        # Información de paginación
+        pagination_info = {
+            "page": page,
+            "items_per_page": items_per_page,
+            "total_items": total_items,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
 
         return JSONResponse(
             status_code=200,
-            content={"estado": 200, "mensaje": "Consulta exitosa.", "data": data_completa}
+            content={
+                "estado": 200, 
+                "mensaje": "Consulta exitosa.", 
+                "data": data_completa,
+                "pagination": pagination_info
+            }
         )
 
     # Si el usuario es trabajador, aquí manejaríamos la lógica específica (veremos después)
