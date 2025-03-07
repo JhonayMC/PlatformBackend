@@ -149,3 +149,7 @@ http://127.0.0.1:8001/api/v1/motivos?tipo=servicio
 http://127.0.0.1:8001/api/v1/tipo-correlativos
 http://127.0.0.1:8001/api/v1/tipo-operaciones
 
+
+Consultar todos los reclamos y quejas
+http://127.0.0.1:8001/api/v1/consultar-estado-reclamo-queja
+

@@ -35,7 +35,7 @@ def json_serial(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-@router.get("/consultar-estado-reclamo-queja")
+@router.get("/consultar-reclamo-queja")
 def consultar_estado_reclamo_queja(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -60,32 +60,45 @@ def consultar_estado_reclamo_queja(
 
     tipo_usuarios_id, empresa_id = result_usuario
 
-    # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas
+    # Si el usuario NO es trabajador, obtener todos sus reclamos y quejas desde `formularios`
     if empresa_id is None:
-        query_reclamos = text("""
+        query_formularios = text("""
             SELECT 
-                'R' || id_reclamo AS id, detalle_reclamo, fecha_creacion
-            FROM postventa.reclamos
+                id, 
+                reclamo, 
+                queja_servicio, 
+                queja_producto, 
+                detalle_reclamo, 
+                detalle_queja, 
+                fecha_creacion
+            FROM postventa.formularios
             WHERE usuarios_id = :usuarios_id
         """)
 
-        query_quejas = text("""
-            SELECT 
-                'Q' || id_queja AS id, motivo_queja, fecha_creacion
-            FROM postventa.quejas
-            WHERE usuarios_id = :usuarios_id
-        """)
+        result_formularios = db.execute(query_formularios, {"usuarios_id": usuarios_id}).fetchall()
 
-        # Ejecutar ambas consultas
-        result_reclamos = db.execute(query_reclamos, {"usuarios_id": usuarios_id}).fetchall()
-        result_quejas = db.execute(query_quejas, {"usuarios_id": usuarios_id}).fetchall()
+        data_completa = []
+        for row in result_formularios:
+            id_formulario, reclamo, queja_servicio, queja_producto, detalle_reclamo, detalle_queja, fecha_creacion = row
 
-        # Convertir los resultados a diccionarios con la fecha formateada
-        reclamos = [{"id": row[0], "detalle_reclamo": row[1], "fecha_creacion": row[2].strftime("%d/%m/%Y %H:%M")} for row in result_reclamos]
-        quejas = [{"id": row[0], "motivo_queja": row[1], "fecha_creacion": row[2].strftime("%d/%m/%Y %H:%M")} for row in result_quejas]
+            # Determinar el prefijo del ID y el detalle a extraer
+            if reclamo == 1:
+                prefijo = "R"
+                detalle = detalle_reclamo
+            elif queja_servicio == 1 or queja_producto == 1:
+                prefijo = "Q"
+                detalle = detalle_queja
+            else:
+                continue  # Si no es reclamo ni queja, lo ignoramos
 
-        # Combinar y ordenar por fecha_creacion DESC
-        data_completa = sorted(reclamos + quejas, key=lambda x: x["fecha_creacion"], reverse=True)
+            data_completa.append({
+                "id": f"{prefijo}{id_formulario}",
+                "detalle": detalle,
+                "fecha_creacion": fecha_creacion.strftime("%d/%m/%Y %H:%M")
+            })
+
+        # Ordenar por fecha de creación DESC
+        data_completa = sorted(data_completa, key=lambda x: x["fecha_creacion"], reverse=True)
 
         return JSONResponse(
             status_code=200,
