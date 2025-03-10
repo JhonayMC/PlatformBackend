@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -11,7 +11,11 @@ from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
 from fastapi.responses import JSONResponse
 from typing import Optional
-import re
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.colors import blue, black
+import re, os
+import requests
 
 
 router = APIRouter(prefix="/api/v1")
@@ -167,9 +171,14 @@ def consultar_estado_reclamo_queja(
         status_code=400, content={"estado": 400, "mensaje": "Acción no permitida para trabajadores en esta etapa."}
     )
 
+# Definir rutas de almacenamiento
+UPLOADS_IMAGENES = "uploads/imagenes"
+UPLOADS_VIDEOS = "uploads/videos"
+UPLOADS_DOCUMENTOS = "uploads/documentos"
+UPLOADS_PDFS = "uploads/pdfs"
 
 @router.post("/registrar-reclamo")
-def registrar_reclamo(
+async def registrar_reclamo(
     form_data: ReclamoForm = Depends(),
     archivo_data: ArchivoReclamoForm = Depends(),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -260,18 +269,49 @@ def registrar_reclamo(
 
         archivos_insertados = []
         for file in archivo_data.form_5_images + archivo_data.form_5_videos:
-            archivo_url = f"/uploads/{file.filename}"
+            # Detectar si el archivo es imagen o video
             tipo_archivo = file.filename.split('.')[-1].upper()
 
+            if tipo_archivo in ["JPG", "PNG"]:
+                folder_path = UPLOADS_IMAGENES
+                base_url = "http://localhost:8001/uploads/imagenes"
+            elif tipo_archivo in ["MP4"]:
+                folder_path = UPLOADS_VIDEOS
+                base_url = "http://localhost:8001/uploads/videos"
+            else:
+                continue  # Si el archivo no es compatible, lo ignoramos
+
+            # Ruta completa para guardar el archivo
+            file_path = os.path.join(folder_path, file.filename)
+
+            # Guardar el archivo en la carpeta correspondiente
+            with open(file_path, "wb") as f:
+                f.write(await file.read())
+
+            # Construir la URL accesible
+            archivo_url = f"{base_url}/{file.filename}"
+
+            # Insertar en la base de datos
             db.execute(insert_archivo, {
                 "formulario_id": reclamo_id,  
-                "archivo_url": archivo_url,
+                "archivo_url": archivo_url,  # Guardamos la URL completa
                 "tipo_archivo": tipo_archivo
             })
 
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
 
         db.commit()
+
+        # 🔹 Llamar a la API de generar-pdf después de guardar el reclamo
+        pdf_url = f"http://localhost:8001/generar-pdf/{reclamo_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        try:
+            response = requests.post(pdf_url, headers=headers)
+            response_data = response.json()
+        except Exception as e:
+            response_data = {"estado": 500, "mensaje": f"Error al generar el PDF: {str(e)}"}
+
         response_data = {
             "estado": 200,
             "mensaje": "Reclamo registrado correctamente.",
@@ -311,9 +351,8 @@ def registrar_reclamo(
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
 
-
 @router.post("/registrar-queja-producto")
-def registrar_queja_producto(
+async def registrar_queja_producto(
     form_data: ReclamoProductoForm = Depends(),
     archivo_data: ArchivoReclamoForm = Depends(),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -410,22 +449,48 @@ def registrar_queja_producto(
 
         archivos_insertados = []
         for file in archivo_data.form_5_images + archivo_data.form_5_videos:
-            archivo_url = f"/uploads/{file.filename}"
+            # Detectar si el archivo es imagen o video
             tipo_archivo = file.filename.split('.')[-1].upper()
 
-            # Validar tipo de archivo
-            tipos_permitidos = ["JPG", "PNG", "PDF", "DOCX", "MP4", "PPTX"]
-            if tipo_archivo not in tipos_permitidos:
-                raise ValueError(f"Tipo de archivo {tipo_archivo} no permitido.")
+            if tipo_archivo in ["JPG", "PNG"]:
+                folder_path = UPLOADS_IMAGENES
+                base_url = "http://localhost:8001/uploads/imagenes"
+            elif tipo_archivo in ["MP4"]:
+                folder_path = UPLOADS_VIDEOS
+                base_url = "http://localhost:8001/uploads/videos"
+            else:
+                continue  # Si el archivo no es compatible, lo ignoramos
 
+            # Ruta completa para guardar el archivo
+            file_path = os.path.join(folder_path, file.filename)
+
+            # Guardar el archivo en la carpeta correspondiente
+            with open(file_path, "wb") as f:
+                f.write(await file.read())
+
+            # Construir la URL accesible
+            archivo_url = f"{base_url}/{file.filename}"
+
+            # Insertar en la base de datos
             db.execute(insert_archivo, {
-                "formulario_id": reclamo_id,
-                "archivo_url": archivo_url,
+                "formulario_id": reclamo_id,  
+                "archivo_url": archivo_url,  # Guardamos la URL completa
                 "tipo_archivo": tipo_archivo
             })
+
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
 
         db.commit()
+
+        # 🔹 Llamar a la API de generar-pdf después de guardar el reclamo
+        pdf_url = f"http://localhost:8001/generar-pdf/{reclamo_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        try:
+            response = requests.post(pdf_url, headers=headers)
+            response_data = response.json()
+        except Exception as e:
+            response_data = {"estado": 500, "mensaje": f"Error al generar el PDF: {str(e)}"}
         # Construcción de la respuesta con toda la data ingresada
         response_data = {
             "estado": 200,
@@ -459,7 +524,7 @@ def registrar_queja_producto(
 
 
 @router.post("/registrar-queja-servicio")
-def registrar_queja_servicio(
+async def registrar_queja_servicio(
     form_data: QuejaServicioForm = Depends(),
     archivo_data: ArchivoServicioForm = Depends(),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -547,20 +612,41 @@ def registrar_queja_servicio(
 
         archivos_insertados = []
         for file in archivo_data.images + archivo_data.videos:
-            archivo_url = f"/uploads/{file.filename}"
+            # Detectar el tipo de archivo
             tipo_archivo = file.filename.split('.')[-1].upper()
 
-            # Validar tipo de archivo
-            tipos_permitidos = ["JPG", "PNG", "PDF", "DOCX", "MP4", "PPTX"]
-            if tipo_archivo not in tipos_permitidos:
-                raise ValueError(f"Tipo de archivo {tipo_archivo} no permitido.")
+            # Definir la carpeta y URL base según el tipo de archivo
+            if tipo_archivo in ["JPG", "PNG"]:
+                folder_path = UPLOADS_IMAGENES
+                base_url = "http://localhost:8001/uploads/imagenes"
+            elif tipo_archivo in ["MP4"]:
+                folder_path = UPLOADS_VIDEOS
+                base_url = "http://localhost:8001/uploads/videos"
+            elif tipo_archivo in ["PDF", "DOCX", "PPTX"]:
+                folder_path = UPLOADS_DOCUMENTOS  # Asegúrate de definir esta variable en tu código
+                base_url = "http://localhost:8001/uploads/documentos"
+            else:
+                continue  # Si el archivo no es compatible, lo ignoramos
 
+            # Ruta completa para guardar el archivo
+            file_path = os.path.join(folder_path, file.filename)
+
+            # Guardar el archivo en la carpeta correspondiente
+            with open(file_path, "wb") as f:
+                f.write(await file.read())
+
+            # Construir la URL accesible
+            archivo_url = f"{base_url}/{file.filename}"
+
+            # Insertar en la base de datos
             db.execute(insert_archivo, {
                 "formulario_id": queja_id,
-                "archivo_url": archivo_url,
+                "archivo_url": archivo_url,  # Guardamos la URL completa
                 "tipo_archivo": tipo_archivo
             })
+
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
+
 
         # Confirmar cambios en la base de datos
         db.commit()
@@ -596,7 +682,6 @@ def registrar_queja_servicio(
     except Exception as e:
         db.rollback()  # Revierte la transacción en caso de error general
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
-
 
 @router.get("/buscar-documento")
 async def buscar_documento(
@@ -676,4 +761,108 @@ async def buscar_documento(
     return JSONResponse(content={"data": documento_info})
 
 
+@router.post("/generar-pdf/{reclamo_id}")
+async def generar_pdf(
+    reclamo_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
 
+    # 🔹 Verificar si el token es válido
+    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_token = db.execute(query_token, {"token": token}).fetchone()
+
+    if not result_token:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+    # 🔹 Obtener datos del reclamo o queja
+    query_reclamo = text("""
+        SELECT f.tipo_correlativos_id, tc.nombre AS tipo_correlativo_nombre, 
+               f.motivos_producto_id, mp.nombre AS motivo_producto_nombre, 
+               f.serie, f.correlativo, f.cliente, f.dni, f.nombres, f.apellidos, 
+               f.email, f.telefono, f.producto_id, f.producto_cantidad, f.fecha_creacion, 
+               f.placa_vehiculo, f.modelo_vehiculo, f.marca, f.modelo_motor, 
+               f.anio, f.tipo_operacion_id, f.fecha_instalacion, f.horas_uso_reclamo, 
+               f.km_instalacion, f.km_actual, f.km_recorridos, f.detalle_reclamo,
+               f.reclamo, f.queja_producto
+        FROM postventa.formularios f
+        LEFT JOIN postventa.tipo_correlativos tc ON f.tipo_correlativos_id = tc.id
+        LEFT JOIN postventa.motivos_producto mp ON f.motivos_producto_id = mp.id
+        WHERE f.id = :reclamo_id
+    """)
+    
+    result_reclamo = db.execute(query_reclamo, {"reclamo_id": reclamo_id}).fetchone()
+
+    if not result_reclamo:
+        return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Reclamo o queja no encontrado"})
+
+    datos_reclamo = dict(result_reclamo._mapping)
+
+    # 🔹 Determinar si es un RECLAMO o una QUEJA
+    es_reclamo = datos_reclamo["reclamo"] == 1
+    es_queja = datos_reclamo["queja_producto"] == 1
+
+    # 🔹 Determinar la URL de `buscar-documento` según `tipo_correlativos_id`
+    tipo_documento = datos_reclamo["tipo_correlativos_id"]
+    serie = datos_reclamo["serie"]
+    correlativo = datos_reclamo["correlativo"]
+
+    buscar_doc_url = f"http://localhost:8001/api/v1/buscar-documento?tipo_documento={tipo_documento}"
+    if tipo_documento in [1, 2]:
+        buscar_doc_url += f"&serie={serie}&correlativo={correlativo}"
+    else:
+        buscar_doc_url += f"&correlativo={correlativo}"
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        response = requests.get(buscar_doc_url, headers=headers)
+        doc_data = response.json().get("data", {})
+    except Exception as e:
+        doc_data = {"estado": 500, "mensaje": f"Error al buscar documento: {str(e)}"}
+
+    # 🔹 Fusionar datos del reclamo/queja con datos del documento
+    datos_finales = {**datos_reclamo, **doc_data}
+
+    # 🔹 Generar el nombre del PDF
+    tipo_reporte = "Reclamo" if es_reclamo else "Queja_Producto"
+    fecha_actual = datetime.datetime.now().strftime('%Y-%m-%d - %H-%M-%S')
+    pdf_filename = f"{tipo_reporte}_{reclamo_id}_{fecha_actual}.pdf"
+    pdf_path = os.path.join(UPLOADS_PDFS, pdf_filename)
+
+    # 🔹 Generar el PDF con los datos combinados
+    c = canvas.Canvas(pdf_path, pagesize=letter)
+    
+    # 🔹 Diseño mejorado del encabezado
+    c.setFillColor(blue)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(200, 780, f"Reporte de {tipo_reporte}")
+
+    # 🔹 Dibujar línea azul de separación
+    c.setStrokeColor(blue)
+    c.line(50, 770, 550, 770)
+
+    # 🔹 Agregar los datos con mejor formato
+    c.setFillColor(black)
+    c.setFont("Helvetica", 12)
+    y_position = 740
+
+    for key, value in datos_finales.items():
+        c.drawString(50, y_position, f"{key.replace('_', ' ').capitalize()}: {value}")
+        y_position -= 20
+
+    c.save()
+
+    # 🔹 Guardar en la base de datos
+    archivo_url = f"http://localhost:8001/uploads/pdfs/{pdf_filename}"
+    insert_archivo = text("INSERT INTO postventa.archivos (formulario_id, archivo_url, tipo_archivo) VALUES (:formulario_id, :archivo_url, :tipo_archivo)")
+    
+    db.execute(insert_archivo, {"formulario_id": reclamo_id, "archivo_url": archivo_url, "tipo_archivo": "PDF"})
+    db.commit()
+
+    return {
+        "estado": 200,
+        "mensaje": f"PDF de {tipo_reporte} generado correctamente",
+        "archivo_url": archivo_url
+    }
