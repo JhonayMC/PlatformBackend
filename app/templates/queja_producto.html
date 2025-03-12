@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Queja de Producto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            font-size: 12px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .header-table td {
+            border: 1px solid #38bdf8;
+            padding: 5px 10px;
+        }
+        .logo-cell {
+            width: 120px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .header-title {
+            text-align: center;
+            font-weight: bold;
+            color: #0056b3;
+        }
+        .reclamo-header {
+            text-align: center;
+            font-size: 14px;
+        }
+        .motivo-row td {
+            padding: 5px 10px;
+            border: 1px solid #38bdf8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        td {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+        }
+        th {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            background-color: #f2f2f2;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: left;
+        }
+        .title {
+            background-color: #38bdf8;
+            color: white;
+            padding: 5px 10px;
+            font-weight: bold;
+            border: none;
+            font-size: 13px;
+        }
+        .info-row td {
+            padding: 5px 10px;
+        }
+        .content {
+            padding: 5px 10px;
+            line-height: 1.3;
+        }
+        .instruction-text {
+            color: #666;
+            font-style: italic;
+            font-size: 11px;
+            padding: 4px 10px;
+            background-color: #f9f9f9;
+        }
+        .data-section {
+            margin: 0 10px 10px 10px;
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+        .product-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 11px;
+        }
+        .product-table th, .product-table td {
+            text-align: left;
+            vertical-align: top;
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+        }
+        .product-table th {
+            background-color: #f2f2f2;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+        .data-item {
+            margin-bottom: 3px;
+        }
+        .data-label {
+            font-weight: bold;
+            display: inline-block;
+        }
+        .blue-stripe {
+            height: 10px;
+            margin-bottom: 10px;
+        }
+        .three-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    <img src="file:///C:/Users/JHONAY/Desktop/ING. DE SISTEMAS/PLATAFORMA BACKEND/PLATAFORMA_POST_VENTA_BACKEND/app/static/logo.jpg" width="70">
+                </td>
+                <td class="header-title">Sistema de Gestión de calidad</td>
+            </tr>
+            <tr>
+                <td colspan="2" class="reclamo-header">Registro de Reclamo - N° R{{ reclamo_id }}</td>
+            </tr>
+        </table>
+
+        <table>
+            <tr class="motivo-row">
+                <td width="15%"><b>Motivo</b></td>
+                <td width="35%" align="center">{{ motivo }}</td>
+                <td width="20%"><b>Fecha de Queja</b></td>
+                <td width="30%" align="center">{{ fecha_creacion }}</td>
+            </tr>
+        </table>
+
+        <div class="blue-stripe"></div>
+
+        <div class="data-section">
+            <table>
+                <tr>
+                    <td class="title">Datos del solicitante</td>
+                </tr>
+                <tr>
+                    <td class="content">
+                        <div class="data-grid">
+                            <div class="data-item"><span class="data-label">DNI:</span> {{ dni }}</div>
+                            <div class="data-item"><span class="data-label">Nombres:</span> {{ nombres }} {{ apellidos }}</div>
+                            <div class="data-item"><span class="data-label">Teléfono:</span> {{ telefono }}</div>
+                            <div class="data-item"><span class="data-label">Email:</span> {{ email }}</div>
+                        </div>
+                    </td>
+                </tr>
+
+            </table>
+        </div>
+
+        <div class="data-section">
+            <table>
+                <tr>
+                    <td class="title">Datos del documento</td>
+                </tr>
+                <tr>
+                    <td class="content">
+                        <div class="three-column">
+                            <div class="data-item"><span class="data-label">Tipo de Documento:</span> {{ tipo_documento }}</div>
+                            <div class="data-item"><span class="data-label">N° Factura/Boleta:</span> {{ documento }}</div>
+                            <div class="data-item"><span class="data-label">Fecha de Venta:</span> {{ fechaventa }}</div>
+                            <div class="data-item"><span class="data-label">N° Interno:</span> {{ nrointerno }}</div>
+                            <div class="data-item"><span class="data-label">Departamento:</span> {{ departamento }}</div>
+                            <div class="data-item"><span class="data-label">Guía de Remisión:</span> {{ guiaremision }}</div>
+                            <div class="data-item"><span class="data-label">Condición de Pago:</span> {{ condicionpago }}</div>
+                            <div class="data-item"><span class="data-label">Vendedor:</span> {{ vendedor }}</div>
+                            <div class="data-item"><span class="data-label">Transportista:</span> {{ transportista }}</div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="data-section">
+            <table>
+                <tr>
+                    <td class="title">Producto en reclamo</td>
+                </tr>
+                <tr>
+                    <td class="content" style="padding: 5px;">
+                        <table class="product-table">
+                            <tr>
+                                <th>Código</th>
+                                <td>{{ producto.codigo }}</td>
+                                <th>Nombre</th>
+                                <td>{{ producto.nombre }}</td>
+                            </tr>
+                            <tr>
+                                <th>Línea</th>
+                                <td>{{ producto.linea }}</td>
+                                <th>Organización</th>
+                                <td>{{ producto.organizacion }}</td>
+                            </tr>
+                            <tr>
+                                <th>Marca</th>
+                                <td>{{ producto.marca }}</td>
+                                <th>Descripción de Marca</th>
+                                <td>{{ producto.marca_desc }}</td>
+                            </tr>
+                            <tr>
+                                <th>Código de Artículo</th>
+                                <td>{{ producto.articulo }}</td>
+                                <th>Cantidad en Reclamo</th>
+                                <td>{{ producto.cantidad }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+
+        <div class="data-section">
+            <table>
+                <tr>
+                    <td class="title">Detalles del reclamo y Adjuntos</td>
+                </tr>
+                <tr>
+                    <td class="content">
+                        Mostrar detalle del reclamo y fotos
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="data-section">
+            <table>
+                <tr>
+                    <td class="title">Condiciones para procesar el reclamo</td>
+                </tr>
+                <tr>
+                    <td class="content">
+                        Para iniciar con el registro se requiere tener a la mano el comprobante de pago.<br>
+                        La falta de información traerá como consecuencia el alargamiento del proceso.<br>
+                        La evaluación se limita solo al repuesto vendido por M&M Repuestos y servicios S.A.<br>
+                        No se aceptarán reclamos de piezas incompletas y sin este formato.<br>
+                        Doy conformidad a la información anteriormente suministrada y declaro haber leído las condiciones para procesar el presente reclamo.
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    </div>
+</body>
+</html>

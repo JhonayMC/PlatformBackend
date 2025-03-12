@@ -42,3 +42,17 @@ PLATAFORMA_POST_VENTA_BACKEND/
 pip install python-jose>=3.0.0
 pip install python-multipart
 pip install reportlab
+pip install jinja2 pdfkit
+
+Instalar wkhtmltopdf
+🔹 Windows
+Descarga wkhtmltopdf desde: 🔗 https://wkhtmltopdf.org/downloads.html
+Instala el archivo .exe.
+Agrega wkhtmltopdf al PATH:
+    Ve a C:\Program Files\wkhtmltopdf\bin\
+    Copia la ruta de wkhtmltopdf.exe
+    Agrega esta ruta a las Variables de Entorno:
+        Abre "Editar variables de entorno del sistema"
+        En "Variables del sistema", busca Path y edítalo
+        Agrega la ruta C:\Program Files\wkhtmltopdf\bin\
+

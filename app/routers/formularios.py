@@ -16,6 +16,9 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.colors import blue, black
 import re, os
 import requests
+from fastapi import BackgroundTasks
+from app.services.background_tasks import generar_pdf_background
+
 
 
 router = APIRouter(prefix="/api/v1")
@@ -116,12 +119,26 @@ def consultar_estado_reclamo_queja(
                 result_motivo = db.execute(query_motivo, {"id": motivos_servicio_id}).fetchone()
                 tipo = result_motivo[0] if result_motivo else "Motivo no encontrado"
             elif queja_producto == 1:
-                prefijo = "Q"
+                prefijo = "R"
                 query_motivo = text("SELECT nombre FROM postventa.motivos_producto WHERE id = :id")
                 result_motivo = db.execute(query_motivo, {"id": motivos_producto_id}).fetchone()
                 tipo = result_motivo[0] if result_motivo else "Motivo no encontrado"
             else:
                 continue  # Si no es reclamo ni queja, lo ignoramos
+
+            # 🔹 Buscar la URL del archivo en la tabla archivos
+            # 🔹 Buscar la URL del archivo en la tabla archivos
+            query_archivo = text("""
+                SELECT archivo_url 
+                FROM postventa.archivos 
+                WHERE formulario_id = :id_formulario AND tipo_archivo = 'pdf'
+                ORDER BY id_archivo DESC LIMIT 1
+            """)
+            result_archivo = db.execute(query_archivo, {"id_formulario": id_formulario}).fetchone()
+            archivo_url = result_archivo[0] if result_archivo else None
+
+             # Si no encuentra la URL en la base de datos, deja la ruta genérica
+            enlace_pdf = archivo_url if archivo_url else f"http://localhost:8001/uploads/pdfs/{prefijo}_{id_formulario:05d}.pdf"
 
             trazabilidad = [
                 {
@@ -129,8 +146,8 @@ def consultar_estado_reclamo_queja(
                     "fecha": fecha_modificacion.strftime("%d/%m/%Y %H:%M"),
                     "titulo": "Reclamo generado de manera exitosa" if reclamo == 1 else "Queja registrada de manera exitosa",
                     "archivo": {
-                        "enlace": f"ruta/del/pdf/{prefijo}{id_formulario:05d}.pdf",
-                        "nombre": f"{prefijo}{id_formulario:05d}",
+                        "enlace": enlace_pdf,
+                        "nombre": f"{prefijo}_{id_formulario:05d}",
                         "extensión": ".pdf"
                     }
                 }
@@ -179,10 +196,11 @@ UPLOADS_PDFS = "uploads/pdfs"
 
 @router.post("/registrar-reclamo")
 async def registrar_reclamo(
+    background_tasks: BackgroundTasks,
     form_data: ReclamoForm = Depends(),
     archivo_data: ArchivoReclamoForm = Depends(),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
 
     token = credentials.credentials
@@ -302,15 +320,8 @@ async def registrar_reclamo(
 
         db.commit()
 
-        # 🔹 Llamar a la API de generar-pdf después de guardar el reclamo
-        pdf_url = f"http://localhost:8001/generar-pdf/{reclamo_id}"
-        headers = {"Authorization": f"Bearer {token}"}
-
-        try:
-            response = requests.post(pdf_url, headers=headers)
-            response_data = response.json()
-        except Exception as e:
-            response_data = {"estado": 500, "mensaje": f"Error al generar el PDF: {str(e)}"}
+        # 🔹 Llamar a la generación de PDF en segundo plano
+        background_tasks.add_task(generar_pdf_background, reclamo_id, token, SessionLocal)
 
         response_data = {
             "estado": 200,
@@ -353,6 +364,7 @@ async def registrar_reclamo(
 
 @router.post("/registrar-queja-producto")
 async def registrar_queja_producto(
+    background_tasks: BackgroundTasks,
     form_data: ReclamoProductoForm = Depends(),
     archivo_data: ArchivoReclamoForm = Depends(),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -482,15 +494,9 @@ async def registrar_queja_producto(
 
         db.commit()
 
-        # 🔹 Llamar a la API de generar-pdf después de guardar el reclamo
-        pdf_url = f"http://localhost:8001/generar-pdf/{reclamo_id}"
-        headers = {"Authorization": f"Bearer {token}"}
+        # 🔹 Llamar a la generación de PDF en segundo plano
+        background_tasks.add_task(generar_pdf_background, reclamo_id, token, SessionLocal)
 
-        try:
-            response = requests.post(pdf_url, headers=headers)
-            response_data = response.json()
-        except Exception as e:
-            response_data = {"estado": 500, "mensaje": f"Error al generar el PDF: {str(e)}"}
         # Construcción de la respuesta con toda la data ingresada
         response_data = {
             "estado": 200,
@@ -761,108 +767,3 @@ async def buscar_documento(
     return JSONResponse(content={"data": documento_info})
 
 
-@router.post("/generar-pdf/{reclamo_id}")
-async def generar_pdf(
-    reclamo_id: int,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    token = credentials.credentials
-
-    # 🔹 Verificar si el token es válido
-    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
-    result_token = db.execute(query_token, {"token": token}).fetchone()
-
-    if not result_token:
-        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
-
-    # 🔹 Obtener datos del reclamo o queja
-    query_reclamo = text("""
-        SELECT f.tipo_correlativos_id, tc.nombre AS tipo_correlativo_nombre, 
-               f.motivos_producto_id, mp.nombre AS motivo_producto_nombre, 
-               f.serie, f.correlativo, f.cliente, f.dni, f.nombres, f.apellidos, 
-               f.email, f.telefono, f.producto_id, f.producto_cantidad, f.fecha_creacion, 
-               f.placa_vehiculo, f.modelo_vehiculo, f.marca, f.modelo_motor, 
-               f.anio, f.tipo_operacion_id, f.fecha_instalacion, f.horas_uso_reclamo, 
-               f.km_instalacion, f.km_actual, f.km_recorridos, f.detalle_reclamo,
-               f.reclamo, f.queja_producto
-        FROM postventa.formularios f
-        LEFT JOIN postventa.tipo_correlativos tc ON f.tipo_correlativos_id = tc.id
-        LEFT JOIN postventa.motivos_producto mp ON f.motivos_producto_id = mp.id
-        WHERE f.id = :reclamo_id
-    """)
-    
-    result_reclamo = db.execute(query_reclamo, {"reclamo_id": reclamo_id}).fetchone()
-
-    if not result_reclamo:
-        return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Reclamo o queja no encontrado"})
-
-    datos_reclamo = dict(result_reclamo._mapping)
-
-    # 🔹 Determinar si es un RECLAMO o una QUEJA
-    es_reclamo = datos_reclamo["reclamo"] == 1
-    es_queja = datos_reclamo["queja_producto"] == 1
-
-    # 🔹 Determinar la URL de `buscar-documento` según `tipo_correlativos_id`
-    tipo_documento = datos_reclamo["tipo_correlativos_id"]
-    serie = datos_reclamo["serie"]
-    correlativo = datos_reclamo["correlativo"]
-
-    buscar_doc_url = f"http://localhost:8001/api/v1/buscar-documento?tipo_documento={tipo_documento}"
-    if tipo_documento in [1, 2]:
-        buscar_doc_url += f"&serie={serie}&correlativo={correlativo}"
-    else:
-        buscar_doc_url += f"&correlativo={correlativo}"
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    try:
-        response = requests.get(buscar_doc_url, headers=headers)
-        doc_data = response.json().get("data", {})
-    except Exception as e:
-        doc_data = {"estado": 500, "mensaje": f"Error al buscar documento: {str(e)}"}
-
-    # 🔹 Fusionar datos del reclamo/queja con datos del documento
-    datos_finales = {**datos_reclamo, **doc_data}
-
-    # 🔹 Generar el nombre del PDF
-    tipo_reporte = "Reclamo" if es_reclamo else "Queja_Producto"
-    fecha_actual = datetime.datetime.now().strftime('%Y-%m-%d - %H-%M-%S')
-    pdf_filename = f"{tipo_reporte}_{reclamo_id}_{fecha_actual}.pdf"
-    pdf_path = os.path.join(UPLOADS_PDFS, pdf_filename)
-
-    # 🔹 Generar el PDF con los datos combinados
-    c = canvas.Canvas(pdf_path, pagesize=letter)
-    
-    # 🔹 Diseño mejorado del encabezado
-    c.setFillColor(blue)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, 780, f"Reporte de {tipo_reporte}")
-
-    # 🔹 Dibujar línea azul de separación
-    c.setStrokeColor(blue)
-    c.line(50, 770, 550, 770)
-
-    # 🔹 Agregar los datos con mejor formato
-    c.setFillColor(black)
-    c.setFont("Helvetica", 12)
-    y_position = 740
-
-    for key, value in datos_finales.items():
-        c.drawString(50, y_position, f"{key.replace('_', ' ').capitalize()}: {value}")
-        y_position -= 20
-
-    c.save()
-
-    # 🔹 Guardar en la base de datos
-    archivo_url = f"http://localhost:8001/uploads/pdfs/{pdf_filename}"
-    insert_archivo = text("INSERT INTO postventa.archivos (formulario_id, archivo_url, tipo_archivo) VALUES (:formulario_id, :archivo_url, :tipo_archivo)")
-    
-    db.execute(insert_archivo, {"formulario_id": reclamo_id, "archivo_url": archivo_url, "tipo_archivo": "PDF"})
-    db.commit()
-
-    return {
-        "estado": 200,
-        "mensaje": f"PDF de {tipo_reporte} generado correctamente",
-        "archivo_url": archivo_url
-    }
