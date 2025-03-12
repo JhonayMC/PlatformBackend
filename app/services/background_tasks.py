@@ -43,6 +43,20 @@ def generar_pdf_background(reclamo_id: int, token: str, db_session):
         es_reclamo = datos_reclamo["reclamo"] == 1
         tipo_reporte = "Reclamo" if es_reclamo else "Queja_Producto"
 
+        # Buscar imágenes en la tabla archivos (máximo 2)
+        query_imagenes = text("""
+            SELECT archivo_url FROM postventa.archivos 
+            WHERE formulario_id = :reclamo_id AND LOWER(tipo_archivo) IN ('jpg', 'png')
+            ORDER BY id_archivo DESC LIMIT 2
+        """)
+
+        result_imagenes = db.execute(query_imagenes, {"reclamo_id": reclamo_id}).fetchall()
+
+        imagenes = [row[0] for row in result_imagenes]
+
+        print(f"🖼️ Imágenes recuperadas para el reclamo {reclamo_id}: {imagenes}")  
+
+
         # 🔹 Determinar la URL de `buscar-documento`
         tipo_documento = datos_reclamo["tipo_correlativos_id"]
         serie = datos_reclamo.get("serie", "")
@@ -73,7 +87,7 @@ def generar_pdf_background(reclamo_id: int, token: str, db_session):
             # 🔹 Limpiar los productos y solo dejar el seleccionado
             doc_data["productos"] = [producto_filtrado] if producto_filtrado else []
 
-            generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_reclamo, db)
+            generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_reclamo, imagenes, db)
 
         thread = threading.Thread(target=fetch_document_data)
         thread.start()
@@ -89,7 +103,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 
 
-def generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_reclamo, db):
+def generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_reclamo, imagenes, db):
     """
     Función que genera el PDF usando una plantilla HTML y lo convierte en PDF.
     """
@@ -102,8 +116,10 @@ def generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_
     datos_finales.update({
         "reclamo_id": reclamo_id,
         "fecha_creacion": datos_reclamo["fecha_creacion"].strftime('%Y-%m-%d'),
-        "producto": doc_data.get("productos", [{}])[0]
+        "producto": doc_data.get("productos", [{}])[0],
+        "imagenes": imagenes
     })
+
 
     # Renderizar el HTML con los datos finales
     html_content = template.render(datos_finales)

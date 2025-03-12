@@ -8,7 +8,7 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
+            background-color: white;
             font-size: 12px;
         }
         .container {
@@ -34,10 +34,6 @@
             text-align: center;
             font-weight: bold;
             color: #002260;
-        }
-        .reclamo-header {
-            text-align: center;
-            font-size: 14px;
         }
         .motivo-row td {
             padding: 5px 10px;
@@ -102,13 +98,16 @@
         .product-table th {
             background-color: #f2f2f2;
         }
-        .data-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
+        .data-grid, .three-column {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
         }
         .data-item {
-            margin-bottom: 3px;
+            display: table-cell;
+            padding: 5px;
+            vertical-align: top;
+            border: 1px solid #ddd; 
         }
         .data-label {
             font-weight: bold;
@@ -118,35 +117,34 @@
             height: 10px;
             margin-bottom: 10px;
         }
-        .three-column {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 5px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <table class="header-table">
-            <tr>
-                <td class="logo-cell">
-                    <img src="file:///C:/Users/JHONAY/Desktop/ING. DE SISTEMAS/PLATAFORMA BACKEND/PLATAFORMA_POST_VENTA_BACKEND/app/static/logo.jpg" width="70">
-                </td>
-                <td class="header-title">Sistema de Gestión de calidad</td>
-            </tr>
-            <tr>
-                <td colspan="2" class="reclamo-header">Registro de Reclamo - N° R{{ reclamo_id }}</td>
-            </tr>
-        </table>
-
-        <table>
-            <tr class="motivo-row">
-                <td width="15%"><b>Motivo</b></td>
-                <td width="35%" align="center">{{ motivo }}</td>
-                <td width="20%"><b>Fecha de Reclamo</b></td>
-                <td width="30%" align="center">{{ fecha_creacion }}</td>
-            </tr>
-        </table>
+        <div class="data-section" style="margin-top: 10px;">
+            <table>
+                <!-- Fila del Logo y el Título -->
+                <tr>
+                    <td class="logo-cell" style="text-align: center; width: 100px;">
+                        <img src="file:///C:/Users/JHONAY/Desktop/ING. DE SISTEMAS/PLATAFORMA BACKEND/PLATAFORMA_POST_VENTA_BACKEND/app/static/logo.jpg" width="70">
+                    </td>
+                    <td class="title" style="text-align: center; font-size: 14px; background-color: #002260; color: white;">
+                        Registro de Reclamo - N° R{{ reclamo_id }}
+                    </td>
+                </tr>
+                <!-- Fila de Motivo y Fecha de Reclamo -->
+                <tr>
+                    <td colspan="2">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 50%; padding: 8px;"><strong>Motivo:</strong> FALLA DE PRODUCTO</td>
+                                <td style="width: 50%; padding: 8px; text-align: left;"><strong>Fecha de reclamo:</strong> {{ fecha_creacion }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
 
         <div class="blue-stripe"></div>
 
@@ -158,6 +156,7 @@
                 <tr>
                     <td class="content">
                         <div class="data-grid">
+                            <!--<div class="data-item"><span class="data-label">Cliente:</span> {{ cliente }}</div>-->
                             <div class="data-item"><span class="data-label">DNI:</span> {{ dni }}</div>
                             <div class="data-item"><span class="data-label">Nombres:</span> {{ nombres }} {{ apellidos }}</div>
                             <div class="data-item"><span class="data-label">Teléfono:</span> {{ telefono }}</div>
@@ -238,9 +237,18 @@
                 </tr>
                 <tr>
                     <td class="content">
-                        Mostrar detalle del reclamo y fotos
+                        <div class="data-item">
+                            <span class="data-label">Detalle del reclamo:</span> {{ detalle_reclamo }}
+                        </div>
+                
+                        <!-- Galería de imágenes -->
+                        <div class="image-gallery" style="margin-top: 10px; text-align: center;">
+                            {% for imagen in imagenes %}
+                            <img src="{{ imagen }}" alt="Imagen Adjunta" width="400" style="margin: 5px auto; border: 1px solid #ddd; display: inline-block;">                            {% endfor %}
+                        </div>
                     </td>
                 </tr>
+                
             </table>
         </div>
 
