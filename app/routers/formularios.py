@@ -216,26 +216,49 @@ async def registrar_reclamo(
 
     token = credentials.credentials
 
-    # Obtener usuarios_id desde USUARIOS_TOKENS
-    query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
-    result_token = db.execute(query_token, {"token": token}).fetchone()
+    # 🔹 Obtener usuarios_id y tipo_usuarios_id desde USUARIOS
+    query_usuario = text("""
+        SELECT u.id AS usuarios_id, u.tipo_usuarios_id 
+        FROM postventa.usuarios_tokens ut 
+        JOIN postventa.usuarios u ON ut.usuarios_id = u.id 
+        WHERE ut.token = :token
+    """)
 
-    if not result_token:
-        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
-
-    usuarios_id = result_token[0]
-
-    # Obtener tipo_usuarios_id desde USUARIOS
-    query_usuario = text("SELECT tipo_usuarios_id, empresa_id FROM postventa.usuarios WHERE id = :usuarios_id")
-    result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
+    result_usuario = db.execute(query_usuario, {"token": token}).fetchone()
 
     if not result_usuario:
-        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado"})
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido o usuario no encontrado"})
 
-    tipo_usuarios_id, empresa_id = result_usuario
+    usuarios_id, tipo_usuarios_id = result_usuario 
+
+
+        # 🔹 Verificar si es cliente o trabajador
+    es_cliente = tipo_usuarios_id == 1
+    es_trabajador = tipo_usuarios_id != 1
 
     # Validaciones
     errores = {}
+
+    # Validaciones adicionales para trabajadores
+    if es_trabajador:
+        if not hasattr(form_data, "clasificacion_venta") or not form_data.clasificacion_venta:
+            errores["clasificacion_venta"] = ["Este campo es obligatorio para trabajadores."]
+        if not hasattr(form_data, "potencial_venta") or not form_data.potencial_venta:
+            errores["potencial_venta"] = ["Este campo es obligatorio para trabajadores."]
+        
+        # 🔹 Validar que `form_3_en_tienda` haya sido proporcionado
+        if form_data.en_tienda is None:
+            errores["en_tienda"] = ["Este campo es obligatorio para trabajadores y debe ser True o False."]
+    else:
+        # 🔹 Si es cliente, forzamos `en_tienda = False`
+        form_data.en_tienda = False
+
+    # 🔹 Si hay errores, retornar una respuesta de validación
+    if errores:
+        return JSONResponse(status_code=422, content={"errores": errores, "estado": 422, "mensaje": "No es posible procesar los datos enviados."})
+
+    # 🔹 Usamos el valor proporcionado por el trabajador o False si es cliente
+    en_tienda_value = form_data.en_tienda
 
     # Validar `tipo_correlativos_id`
     tipo_correlativos_id = form_data.tipo_correlativos_id
@@ -273,20 +296,21 @@ async def registrar_reclamo(
                 estado_id, fecha, fecha_creacion, serie, correlativo, 
                 producto_id, producto_cantidad, detalle_reclamo, 
                 placa_vehiculo, marca, modelo_vehiculo, anio, modelo_motor, tipo_operacion_id,
-                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual, producto_tienda
+                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual, en_tienda
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 1, 0, 0,
                 :cliente, :dni, :nombres, :apellidos, :correo, :telefono,
                 2, CAST(:fecha_venta AS DATE), DEFAULT, :serie, :correlativo,
                 :producto_id, :producto_cantidad, :detalle_reclamo, 
                 :placa_vehiculo, :marca, :modelo_vehiculo, :anio, :modelo_motor, :tipo_operacion_id,
-                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual, 'false'
+                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual, :en_tienda
             ) RETURNING id, fecha_creacion
         """)
 
         result = db.execute(insert_reclamo, form_data.__dict__ | {
             "usuarios_id": usuarios_id,
             "tipo_usuarios_id": tipo_usuarios_id,
+            "en_tienda": en_tienda_value
         })
         reclamo_id, fecha_creacion = result.fetchone()
 
@@ -343,8 +367,9 @@ async def registrar_reclamo(
 
         db.commit()
 
-        # 🔹 Llamar a la generación de PDF en segundo plano
-        background_tasks.add_task(generar_pdf_background, reclamo_id, token, SessionLocal)
+        if es_cliente:
+            # 🔹 Llamar a la generación de PDF en segundo plano
+            background_tasks.add_task(generar_pdf_background, reclamo_id, token, SessionLocal)
 
         response_data = {
             "estado": 200,
@@ -376,8 +401,14 @@ async def registrar_reclamo(
             "horas_uso_reclamo": form_data.horas_uso_reclamo,
             "km_instalacion": form_data.km_instalacion,
             "km_actual": form_data.km_actual,
-            "archivos": archivos_insertados
+            "archivos": archivos_insertados,
+            "en_tienda": en_tienda_value,
         }
+
+         # Solo agregar estos campos si es trabajador
+        if es_trabajador:
+            response_data["clasificacion_venta"] = form_data.clasificacion_venta
+            response_data["potencial_venta"] = form_data.potencial_venta
 
         return JSONResponse(status_code=200, content=response_data)
 
@@ -461,12 +492,12 @@ async def registrar_queja_producto(
                 usuarios_id, tipo_usuarios_id, tipo_correlativos_id, queja_servicio, queja_producto, reclamo,
                 motivos_producto_id, tipo_queja, cliente, dni, nombres, apellidos,
                 email, telefono, estado_id, fecha, detalle_reclamo, fecha_creacion, 
-                producto_id, producto_cantidad, serie, correlativo, producto_tienda
+                producto_id, producto_cantidad, serie, correlativo
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 0, 1, 0,
                 :motivos_producto_id, 'G1', :cliente, :dni, :nombres, :apellidos,
                 :correo, :telefono, 2, CAST(:fecha_venta AS DATE), :detalle_reclamo, DEFAULT,
-                :producto_id, :producto_cantidad, :serie, :correlativo, 'false'
+                :producto_id, :producto_cantidad, :serie, :correlativo
             ) RETURNING id, fecha_creacion
         """)
 
@@ -620,11 +651,11 @@ async def registrar_queja_servicio(
             INSERT INTO postventa.formularios (
                 usuarios_id, tipo_usuarios_id, queja_servicio, queja_producto, reclamo, motivos_servicio_id,
                 tipo_queja, cliente, dni, nombres, apellidos,
-                email, telefono, estado_id, fecha, detalle_queja, fecha_creacion, producto_tienda
+                email, telefono, estado_id, fecha, detalle_queja, fecha_creacion
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, 1, 0, 0, :motivo,
                 'G2', :cliente, :dni, :nombres, :apellidos,
-                :correo, :telefono, 1, :fecha_queja, :descripcion, DEFAULT, 'false'
+                :correo, :telefono, 1, :fecha_queja, :descripcion, DEFAULT
             ) RETURNING id, fecha_creacion
         """)
 
@@ -823,6 +854,10 @@ async def buscar_documento(
     if tipo_usuarios_id == 1:
         documento_info.pop("clasificacion_venta", None)
         documento_info.pop("potencial_venta", None)
+
+        # 🔹 Recorrer la lista de productos y eliminar precio_venta
+        for producto in documento_info.get("productos", []):
+            producto.pop("precio_venta", None)
 
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})

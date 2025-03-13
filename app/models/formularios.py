@@ -136,7 +136,11 @@ class ReclamoForm:
         form_4_kmInstalacion: int = Form(...),
         form_4_kmActual: int = Form(...),
         form_4_kmRecorridos: Optional[int] = Form(None),
-        form_5_descripcion: str = Form(...)
+        form_5_descripcion: str = Form(...),
+        # Campos adicionales para trabajadores (no requeridos por clientes)
+        form_2_clasificacion_venta: Optional[str] = Form(None),
+        form_2_potencial_venta: Optional[str] = Form(None),
+        form_3_en_tienda: Optional[bool] = Form(None)
     ):
         self.tipo_correlativos_id = form_1_tipocorrelativo_id
         self.serie = form_1_serie
@@ -170,6 +174,10 @@ class ReclamoForm:
         self.km_actual = form_4_kmActual
         self.km_recorridos = form_4_kmRecorridos
         self.detalle_reclamo = form_5_descripcion
+         #Campos que solo se asignan si es trabajador
+        self.clasificacion_venta = form_2_clasificacion_venta
+        self.potencial_venta = form_2_potencial_venta
+        self.en_tienda = form_3_en_tienda
 
 class ArchivoReclamoForm:
     def __init__(
@@ -211,6 +219,7 @@ simulated_docs = {
                 "marca_desc": "Descripción Marca 1",
                 "fabrica": "Fabrica 1",
                 "articulo": "Articulo 1",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -222,6 +231,7 @@ simulated_docs = {
                 "marca_desc": "Tecnología de vanguardia",
                 "fabrica": "Samsung Vietnam",
                 "articulo": "SM-G110",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -233,6 +243,7 @@ simulated_docs = {
                 "marca_desc": "Calidad deportiva premium",
                 "fabrica": "Nike Indonesia",
                 "articulo": "NK-ZD450",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -244,6 +255,7 @@ simulated_docs = {
                 "marca_desc": "Tecnología confiable",
                 "fabrica": "HP China",
                 "articulo": "HP-LT220",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -255,6 +267,7 @@ simulated_docs = {
                 "marca_desc": "Innovación para el hogar",
                 "fabrica": "LG Corea",
                 "articulo": "LG-RF345",
+                "precio_venta": 250,
                 "cantidad": 1
             }
         ]
@@ -287,6 +300,7 @@ simulated_docs = {
                 "marca_desc": "Tecnología japonesa de precisión",
                 "fabrica": "Canon Tailandia",
                 "articulo": "CN-MP450",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -298,6 +312,7 @@ simulated_docs = {
                 "marca_desc": "Mobiliario empresarial premium",
                 "fabrica": "Maderas Finas Perú",
                 "articulo": "ES-EJ320",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -309,6 +324,7 @@ simulated_docs = {
                 "marca_desc": "Calidad de imagen superior",
                 "fabrica": "LG México",
                 "articulo": "LG-MU340",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -320,6 +336,7 @@ simulated_docs = {
                 "marca_desc": "Ergonomía avanzada",
                 "fabrica": "ErgoDesign Brasil",
                 "articulo": "CP-SE550",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -331,6 +348,7 @@ simulated_docs = {
                 "marca_desc": "Proyección de alta definición",
                 "fabrica": "Epson Indonesia",
                 "articulo": "EP-PR750",
+                "precio_venta": 250,
                 "cantidad": 1
             }
         ]
@@ -363,6 +381,7 @@ simulated_docs = {
                 "marca_desc": "Materiales resistentes",
                 "fabrica": "TextilPro Perú",
                 "articulo": "ME-320",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -374,6 +393,7 @@ simulated_docs = {
                 "marca_desc": "Papel de alta calidad",
                 "fabrica": "PapelMax Colombia",
                 "articulo": "NP-JC100",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -385,6 +405,7 @@ simulated_docs = {
                 "marca_desc": "Alto rendimiento en terreno",
                 "fabrica": "BikeMaster Taiwan",
                 "articulo": "MP-B450",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -396,6 +417,7 @@ simulated_docs = {
                 "marca_desc": "Preparación perfecta",
                 "fabrica": "HomeApp China",
                 "articulo": "CM-CE120",
+                "precio_venta": 250,
                 "cantidad": 1
             },
             {
@@ -407,6 +429,7 @@ simulated_docs = {
                 "marca_desc": "Acero inoxidable premium",
                 "fabrica": "KitchenPro Brasil",
                 "articulo": "CM-JO500",
+                "precio_venta": 250,
                 "cantidad": 1
             }
         ]

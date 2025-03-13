@@ -165,7 +165,7 @@ CREATE TABLE postventa.formularios (
     modelo_motor VARCHAR(50),
     anio INT,
     tipo_operacion_id INT,
-    producto_tienda CHAR(1) CHECK (producto_tienda IN ('S', 'N')),
+    en_tienda BOOLEAN DEFAULT FALSE,
     fecha_instalacion DATE,
     horas_uso_reclamo INT,
     km_instalacion INT,
