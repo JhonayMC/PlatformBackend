@@ -259,14 +259,14 @@ async def registrar_reclamo(
             INSERT INTO postventa.formularios (
                 usuarios_id, tipo_usuarios_id, tipo_correlativos_id, reclamo, queja_servicio, queja_producto,
                 cliente, dni, nombres, apellidos, email, telefono,
-                estado, fecha, fecha_creacion, serie, correlativo, 
+                estado_id, fecha, fecha_creacion, serie, correlativo, 
                 producto_id, producto_cantidad, detalle_reclamo, 
                 placa_vehiculo, marca, modelo_vehiculo, anio, modelo_motor, tipo_operacion_id,
                 fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 1, 0, 0,
                 :cliente, :dni, :nombres, :apellidos, :correo, :telefono,
-                'Generado', CAST(:fecha_venta AS DATE), DEFAULT, :serie, :correlativo,
+                2, CAST(:fecha_venta AS DATE), DEFAULT, :serie, :correlativo,
                 :producto_id, :producto_cantidad, :detalle_reclamo, 
                 :placa_vehiculo, :marca, :modelo_vehiculo, :anio, :modelo_motor, :tipo_operacion_id,
                 :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual
@@ -317,6 +317,18 @@ async def registrar_reclamo(
             })
 
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
+        
+        # Insertar en trazabilidad
+        insert_trazabilidad = text("""
+            INSERT INTO postventa.trazabilidad (formulario_id, estado_id)
+            VALUES (:formulario_id, :estado_id)
+        """)
+
+         # Ejecutar la inserción
+        db.execute(insert_trazabilidad, {
+            "formulario_id": reclamo_id,
+            "estado_id": 2  # Estado en el que se encuentra el formulario
+        })
 
         db.commit()
 
@@ -698,12 +710,25 @@ async def buscar_documento(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
-    # Validar token
+
+    # Validar token y obtener usuarios_id
     query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_token = db.execute(query_token, {"token": token}).fetchone()
+    
     if not result_token:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
     
+    usuarios_id = result_token[0]
+
+    # Obtener tipo_usuarios_id del usuario
+    query_usuario = text("SELECT tipo_usuarios_id FROM postventa.usuarios WHERE id = :usuarios_id")
+    result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado"})
+
+    tipo_usuarios_id = result_usuario[0]
+
     # Validaciones de tipo de documento
     if tipo_documento in [1, 2]:  # BOLETA o FACTURA
         if not serie or not re.fullmatch(r'[A-Za-z0-9]{4}', serie.strip()):
@@ -725,10 +750,7 @@ async def buscar_documento(
                 }
             )
         doc_type = "BOLETA" if tipo_documento == 1 else "FACTURA"
-        # Crear una copia del documento plantilla y actualizarlo con los datos proporcionados
-        documento_info = simulated_docs[doc_type].copy()
-        documento_info["documento"] = f"{serie}-{correlativo}"
-        
+
     elif tipo_documento == 3:  # NOTA DE VENTA
         if serie and serie.strip() != "":
             return JSONResponse(
@@ -749,10 +771,7 @@ async def buscar_documento(
                 }
             )
         doc_type = "NOTA DE VENTA"
-        # Crear una copia del documento plantilla y actualizarlo con el correlativo proporcionado
-        documento_info = simulated_docs[doc_type].copy()
-        documento_info["documento"] = correlativo
-        
+
     else:
         return JSONResponse(
             status_code=422,
@@ -762,8 +781,18 @@ async def buscar_documento(
                 "mensaje": "No es posible procesar los datos enviados."
             }
         )
-    
+
+    # Obtener la información simulada del documento
+    documento_info = simulated_docs[doc_type].copy()
+    documento_info["documento"] = f"{serie}-{correlativo}" if tipo_documento in [1, 2] else correlativo
+
+    # Si el usuario es tipo_usuarios_id = 1, eliminar los campos clasificacion_venta y potencial_venta
+    if tipo_usuarios_id == 1:
+        documento_info.pop("clasificacion_venta", None)
+        documento_info.pop("potencial_venta", None)
+
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
+
 
 

@@ -195,6 +195,8 @@ simulated_docs = {
         "sucursal": "Sucursal Boleta",
         "almacen": "Almacén Boleta",
         "transportista": "Transportista Boleta",
+        "clasificacion_venta" : "xxxxxxxx",
+        "potencial_venta": "xxxxxxxxxx",
         "cliente": {
             "nombre_completo": "Samuel Roman Tito",
             "documento": "65465445"
@@ -269,6 +271,8 @@ simulated_docs = {
         "sucursal": "Sucursal Factura",
         "almacen": "Almacén Factura",
         "transportista": "Transportista Factura",
+        "clasificacion_venta" : "xxxxxxxx",
+        "potencial_venta": "xxxxxxxxxx",
         "cliente": {
             "nombre_completo": "Samuel Roman Tito",
             "documento": "65465445"
@@ -343,6 +347,8 @@ simulated_docs = {
         "sucursal": "Sucursal NV",
         "almacen": "Almacén NV",
         "transportista": "Transportista NV",
+        "clasificacion_venta" : "xxxxxxxx",
+        "potencial_venta": "xxxxxxxxxx",
         "cliente": {
             "nombre_completo": "Samuel Roman Tito",
             "documento": "65465445" 

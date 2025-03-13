@@ -136,6 +136,7 @@ ALTER TABLE POSTVENTA.USUARIOS ADD COLUMN empresa_id int;
 
 
 CREATE TABLE postventa.formularios (
+    id SERIAL PRIMARY KEY,
     usuarios_id BIGINT NOT NULL,
     tipo_usuarios_id BIGINT NOT NULL,
     tipo_correlativos_id INT,
@@ -155,7 +156,7 @@ CREATE TABLE postventa.formularios (
     telefono VARCHAR(15) NOT NULL,
     producto_id INT,
     productO_cantidad INT,
-    estado VARCHAR(20) CHECK (estado IN ('Evaluc. Tec.', 'Solucionado', 'Procede', 'No procede', 'Generado', 'Registrada')),
+    estado_id INT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     detalle_queja TEXT NULL,
     placa_vehiculo VARCHAR(8),
@@ -176,7 +177,8 @@ CREATE TABLE postventa.formularios (
     CONSTRAINT fk_formularios_motivos_producto FOREIGN KEY (motivos_producto_id) REFERENCES postventa.motivos_producto(id),
     CONSTRAINT fk_formularios_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
     CONSTRAINT fk_formularios_tipo_usuarios FOREIGN KEY (tipo_usuarios_id) REFERENCES postventa.tipo_usuarios(id),
-    CONSTRAINT fk_formularios_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operaciones(id)
+    CONSTRAINT fk_formularios_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operaciones(id),
+    CONSTRAINT fk_formularios_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado)
 );
 -- Tabla: ARCHIVOS
 CREATE TABLE postventa.archivos (
@@ -262,3 +264,30 @@ INSERT INTO postventa.motivos_servicio (nombre) VALUES
 ('Desabasto'),
 ('Falta de información');
 
+CREATE TABLE postventa.estados (
+    id_estado SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Insertar los estados únicos
+INSERT INTO postventa.estados (nombre) VALUES
+('Registrada'),
+('Generado'),
+('Cerrado'),
+('Anulado'),
+('Evaluac. Téc.'),
+('Report. Fábric.'),
+('Evaluac. Com'),
+('No procede'),
+('Procede'),
+('Solucionado');
+
+
+CREATE TABLE postventa.trazabilidad (
+    id_trazabilidad SERIAL PRIMARY KEY,
+    formulario_id INT NOT NULL,
+    estado_id INT NOT NULL,
+    fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_trazabilidad_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_trazabilidad_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado) ON DELETE CASCADE
+);
