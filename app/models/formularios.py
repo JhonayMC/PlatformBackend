@@ -196,7 +196,8 @@ simulated_docs = {
         "almacen": "Almacén Boleta",
         "transportista": "Transportista Boleta",
         "cliente": {
-            "nombre_completo": "Samuel Roman Tito"  
+            "nombre_completo": "Samuel Roman Tito",
+            "documento": "65465445"
         },
         "productos": [
             {
@@ -269,7 +270,8 @@ simulated_docs = {
         "almacen": "Almacén Factura",
         "transportista": "Transportista Factura",
         "cliente": {
-            "nombre_completo": "Samuel Roman Tito"  
+            "nombre_completo": "Samuel Roman Tito",
+            "documento": "65465445"
         },
         "productos": [
             {
@@ -342,7 +344,8 @@ simulated_docs = {
         "almacen": "Almacén NV",
         "transportista": "Transportista NV",
         "cliente": {
-            "nombre_completo": "Samuel Roman Tito"  
+            "nombre_completo": "Samuel Roman Tito",
+            "documento": "65465445" 
         },
         "productos": [
             {
