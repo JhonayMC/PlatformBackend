@@ -862,5 +862,33 @@ async def buscar_documento(
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
 
+# luego ordenar ...
 
+from fastapi import Query, APIRouter
+from fastapi.responses import JSONResponse
 
+router = APIRouter(prefix="/api/v1")  
+
+clientes = {
+    "70981525": {
+        "nombre_completo": "angel obregon",
+        "documento": "4648846",
+        "clasificación_venta": "venta normal",
+        "potencial_venta": "potencial"
+    }
+}
+
+@router.get("/buscar-cliente")
+async def buscar_cliente(buscar: str = Query(..., description="Código del cliente a buscar")):
+    """
+    Endpoint para buscar un cliente por código.
+    """
+    cliente = clientes.get(buscar)
+
+    if not cliente:
+        return JSONResponse(
+            status_code=404,
+            content={"mensaje": "Cliente no encontrado"}
+        )
+
+    return [cliente]
