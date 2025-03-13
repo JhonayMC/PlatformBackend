@@ -88,7 +88,7 @@ def consultar_estado_reclamo_queja(
             SELECT 
                 id, reclamo, queja_servicio, queja_producto, 
                 detalle_reclamo, detalle_queja, fecha_creacion, fecha_modificacion,
-                estado, motivos_servicio_id, motivos_producto_id
+                estado_id, motivos_servicio_id, motivos_producto_id
             FROM postventa.formularios
             WHERE usuarios_id = :usuarios_id
             ORDER BY fecha_creacion DESC
@@ -127,7 +127,6 @@ def consultar_estado_reclamo_queja(
                 continue  # Si no es reclamo ni queja, lo ignoramos
 
             # 🔹 Buscar la URL del archivo en la tabla archivos
-            # 🔹 Buscar la URL del archivo en la tabla archivos
             query_archivo = text("""
                 SELECT archivo_url 
                 FROM postventa.archivos 
@@ -140,10 +139,21 @@ def consultar_estado_reclamo_queja(
              # Si no encuentra la URL en la base de datos, deja la ruta genérica
             enlace_pdf = archivo_url if archivo_url else f"http://localhost:8001/uploads/pdfs/{prefijo}_{id_formulario:05d}.pdf"
 
+            # Obtener la trazabilidad del formulario
+            query_trazabilidad = text("""
+                SELECT t.estado_id, e.nombre, t.fecha_cambio
+                FROM postventa.trazabilidad t
+                JOIN postventa.estados e ON t.estado_id = e.id_estado
+                WHERE t.formulario_id = :id_formulario
+                ORDER BY t.fecha_cambio DESC
+            """)
+            result_trazabilidad = db.execute(query_trazabilidad, {"id_formulario": id_formulario}).fetchall()
+
+            # Construir la trazabilidad con el estado y la fecha correcta
             trazabilidad = [
                 {
-                    "estado": estado,
-                    "fecha": fecha_modificacion.strftime("%d/%m/%Y %H:%M"),
+                    "estado": estado_nombre,
+                    "fecha": fecha_cambio.strftime("%d/%m/%Y %H:%M"),
                     "titulo": "Reclamo generado de manera exitosa" if reclamo == 1 else "Queja registrada de manera exitosa",
                     "archivo": {
                         "enlace": enlace_pdf,
@@ -151,6 +161,7 @@ def consultar_estado_reclamo_queja(
                         "extensión": ".pdf"
                     }
                 }
+                for estado_id, estado_nombre, fecha_cambio in result_trazabilidad
             ]
 
             data_completa.append({
@@ -262,14 +273,14 @@ async def registrar_reclamo(
                 estado_id, fecha, fecha_creacion, serie, correlativo, 
                 producto_id, producto_cantidad, detalle_reclamo, 
                 placa_vehiculo, marca, modelo_vehiculo, anio, modelo_motor, tipo_operacion_id,
-                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual
+                fecha_instalacion, horas_uso_reclamo, km_instalacion, km_actual, producto_tienda
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 1, 0, 0,
                 :cliente, :dni, :nombres, :apellidos, :correo, :telefono,
                 2, CAST(:fecha_venta AS DATE), DEFAULT, :serie, :correlativo,
                 :producto_id, :producto_cantidad, :detalle_reclamo, 
                 :placa_vehiculo, :marca, :modelo_vehiculo, :anio, :modelo_motor, :tipo_operacion_id,
-                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual
+                :fecha_instalacion, :horas_uso_reclamo, :km_instalacion, :km_actual, 'false'
             ) RETURNING id, fecha_creacion
         """)
 
@@ -449,13 +460,13 @@ async def registrar_queja_producto(
             INSERT INTO postventa.formularios (
                 usuarios_id, tipo_usuarios_id, tipo_correlativos_id, queja_servicio, queja_producto, reclamo,
                 motivos_producto_id, tipo_queja, cliente, dni, nombres, apellidos,
-                email, telefono, estado, fecha, detalle_reclamo, fecha_creacion, 
-                producto_id, producto_cantidad, serie, correlativo
+                email, telefono, estado_id, fecha, detalle_reclamo, fecha_creacion, 
+                producto_id, producto_cantidad, serie, correlativo, producto_tienda
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, :tipo_correlativos_id, 0, 1, 0,
                 :motivos_producto_id, 'G1', :cliente, :dni, :nombres, :apellidos,
-                :correo, :telefono, 'Generado', CAST(:fecha_venta AS DATE), :detalle_reclamo, DEFAULT,
-                :producto_id, :producto_cantidad, :serie, :correlativo
+                :correo, :telefono, 2, CAST(:fecha_venta AS DATE), :detalle_reclamo, DEFAULT,
+                :producto_id, :producto_cantidad, :serie, :correlativo, 'false'
             ) RETURNING id, fecha_creacion
         """)
 
@@ -504,6 +515,18 @@ async def registrar_queja_producto(
 
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
 
+        # Insertar en trazabilidad
+        insert_trazabilidad = text("""
+            INSERT INTO postventa.trazabilidad (formulario_id, estado_id)
+            VALUES (:formulario_id, :estado_id)
+        """)
+
+         # Ejecutar la inserción
+        db.execute(insert_trazabilidad, {
+            "formulario_id": reclamo_id,
+            "estado_id": 2  # Estado en el que se encuentra el formulario
+        })
+
         db.commit()
 
         # 🔹 Llamar a la generación de PDF en segundo plano
@@ -539,7 +562,6 @@ async def registrar_queja_producto(
     except Exception as e:
         db.rollback()
         return JSONResponse(status_code=500, content={"estado": 500, "mensaje": f"Error en el servidor: {str(e)}"})
-
 
 @router.post("/registrar-queja-servicio")
 async def registrar_queja_servicio(
@@ -598,11 +620,11 @@ async def registrar_queja_servicio(
             INSERT INTO postventa.formularios (
                 usuarios_id, tipo_usuarios_id, queja_servicio, queja_producto, reclamo, motivos_servicio_id,
                 tipo_queja, cliente, dni, nombres, apellidos,
-                email, telefono, estado, fecha, detalle_queja, fecha_creacion
+                email, telefono, estado_id, fecha, detalle_queja, fecha_creacion, producto_tienda
             ) VALUES (
                 :usuarios_id, :tipo_usuarios_id, 1, 0, 0, :motivo,
                 'G2', :cliente, :dni, :nombres, :apellidos,
-                :correo, :telefono, 'Registrada', :fecha_queja, :descripcion, DEFAULT
+                :correo, :telefono, 1, :fecha_queja, :descripcion, DEFAULT, 'false'
             ) RETURNING id, fecha_creacion
         """)
 
@@ -664,7 +686,18 @@ async def registrar_queja_servicio(
             })
 
             archivos_insertados.append({"archivo_url": archivo_url, "tipo_archivo": tipo_archivo})
+        
+        # Insertar en trazabilidad
+        insert_trazabilidad = text("""
+            INSERT INTO postventa.trazabilidad (formulario_id, estado_id)
+            VALUES (:formulario_id, :estado_id)
+        """)
 
+         # Ejecutar la inserción
+        db.execute(insert_trazabilidad, {
+            "formulario_id": queja_id,
+            "estado_id": 1  # Estado en el que se encuentra el formulario
+        })
 
         # Confirmar cambios en la base de datos
         db.commit()

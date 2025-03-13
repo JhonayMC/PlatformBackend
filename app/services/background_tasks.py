@@ -6,6 +6,9 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from sqlalchemy import text
 import pdfkit
+import asyncio 
+from app.services.email_service import enviar_correo_reclamo  
+
 
 UPLOADS_PDFS = "uploads/pdfs"  # Ruta donde se guardan los PDFs
 
@@ -156,6 +159,21 @@ def generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_
         db.commit()
 
         print(f"✅ PDF guardado en la base de datos con URL: {archivo_url}")
+
+        # 🔹 Una vez guardado el PDF, obtenemos el correo del usuario y enviamos el email
+        query_correo = text("SELECT email, cliente FROM postventa.formularios WHERE id = :reclamo_id")
+        result_correo = db.execute(query_correo, {"reclamo_id": reclamo_id}).fetchone()
+
+        if result_correo:
+            email_usuario, cliente = result_correo
+            print(f"📧 Enviando correo a {email_usuario} con el PDF adjunto.")
+
+            # 🔹 Manejo correcto del event loop
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(enviar_correo_reclamo(email_usuario, cliente, reclamo_id))
+            except RuntimeError:
+                asyncio.run(enviar_correo_reclamo(email_usuario, cliente, reclamo_id))
 
     except Exception as e:
         print(f"❌ Error al insertar en la base de datos: {str(e)}")
