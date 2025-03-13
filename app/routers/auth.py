@@ -100,7 +100,7 @@ async def iniciar_sesion(request: Request, background_tasks: BackgroundTasks):
         else:
             # Autenticación remota
             payload_remote = {
-                "cia": empresa_id,
+                "cia": str(empresa_id),
                 "username": usuario_input,
                 "password": contrasena
             }
