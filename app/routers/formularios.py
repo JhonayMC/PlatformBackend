@@ -4,8 +4,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
-from app.models.formularios import ConsultarEstadoRequest, simulated_docs 
-from app.models.formularios import ReclamoForm,QuejaServicioForm, ArchivoServicioForm, ReclamoProductoForm,ArchivoReclamoForm
+from app.models.formularios import ConsultarEstadoRequest, simulated_docs, clientes
+from app.models.formularios import ReclamoForm,QuejaServicioForm, ArchivoServicioForm, ReclamoProductoForm,ArchivoReclamoForm, SeguimientoRequest
 from app.db.connection import SessionLocal
 from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
@@ -18,6 +18,9 @@ import re, os
 import requests
 from fastapi import BackgroundTasks
 from app.services.background_tasks import generar_pdf_background
+from app.services.auth_service import obtener_motivo
+
+
 
 
 
@@ -862,21 +865,6 @@ async def buscar_documento(
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
 
-# luego ordenar ...
-
-from fastapi import Query, APIRouter
-from fastapi.responses import JSONResponse
-
-router = APIRouter(prefix="/api/v1")  
-
-clientes = {
-    "70981525": {
-        "nombre_completo": "angel obregon",
-        "documento": "4648846",
-        "clasificación_venta": "venta normal",
-        "potencial_venta": "potencial"
-    }
-}
 
 @router.get("/buscar-cliente")
 async def buscar_cliente(buscar: str = Query(..., description="Código del cliente a buscar")):
@@ -892,3 +880,108 @@ async def buscar_cliente(buscar: str = Query(..., description="Código del clien
         )
 
     return [cliente]
+
+@router.get("/seguimiento")
+async def obtener_seguimiento(
+    page: int = Query(1, description="Número de página (debe ser un entero)"),
+    tipo_registro: Optional[str] = Query(None, description="Tipo de registro: 'reclamos', 'quejas' o vacío"),
+    estado: Optional[int] = Query(None, description="ID del estado"),
+    leyenda: Optional[str] = Query(None, description="Leyenda: 'NNC' o 'NNP'"),
+    cliente: Optional[str] = Query(None, description="Código, razón social o RUC del cliente"),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    # 🔹 Validar usuario con el token
+    query_usuario = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
+    result_usuario = db.execute(query_usuario, {"token": token}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido o usuario no encontrado"})
+
+    usuarios_id = result_usuario[0]
+
+    # 🔹 Construcción del Query Base
+    query = """
+        SELECT f.id, 
+               f.estado_id, 
+               COALESCE(e.nombre, 'Sin estado') AS estado_desc, 
+               f.fecha_creacion AS fecha_registro, 
+               f.reclamo, f.queja_servicio, f.queja_producto,
+               f.motivos_servicio_id, f.motivos_producto_id
+        FROM postventa.formularios f
+        LEFT JOIN postventa.estados e ON f.estado_id = e.id_estado
+        WHERE 1=1
+    """
+
+    params = {}
+
+    # 🔹 Filtrar por tipo de registro
+    if tipo_registro:
+        if tipo_registro == "reclamos":
+            query += " AND (f.reclamo = 1 OR f.queja_producto = 1)"
+        elif tipo_registro == "quejas":
+            query += " AND f.queja_servicio = 1"
+
+    # 🔹 Filtrar por estado
+    if estado is not None:
+        query += " AND f.estado_id = :estado"
+        params["estado"] = estado
+
+    # 🔹 Buscar por cliente (nombre, código o RUC)
+    if cliente:
+        query += " AND (LOWER(f.nombres) LIKE LOWER(:cliente) OR LOWER(f.apellidos) LIKE LOWER(:cliente) OR f.dni LIKE :cliente)"
+        params["cliente"] = f"%{cliente}%"
+
+    # 🔹 Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
+    query += " ORDER BY f.reclamo DESC, f.fecha_creacion DESC"
+
+    # 🔹 Aplicar paginación
+    offset = (page - 1) * 10
+    query += " LIMIT 10 OFFSET :offset"
+    params["offset"] = offset
+
+    # 🔹 Ejecutar la consulta
+    result = db.execute(text(query), params).fetchall()
+
+    # 🔹 Formatear la respuesta
+    seguimiento_list = []
+    for idx, row in enumerate(result, start=offset + 1):
+        # Determinar tipo de registro
+        if row.reclamo == 1 or row.queja_producto == 1:
+            tipo = "Reclamo"
+            id_prefix = "R"
+        elif row.queja_servicio == 1:
+            tipo = "Queja"
+            id_prefix = "Q"
+        else:
+            tipo = "Desconocido"
+            id_prefix = "X"  # En caso de datos inconsistentes
+
+        motivo = obtener_motivo(row.reclamo, row.queja_servicio, row.queja_producto, row.motivos_servicio_id, row.motivos_producto_id, db)
+
+        seguimiento_list.append({
+            "nro": idx,
+            "id": f"{id_prefix}{row.id:03d}",  # 🔹 Agrega "R" para Reclamos y "Q" para Quejas
+            "motivo": motivo,
+            "fecha_registro": row.fecha_registro.strftime('%d/%m/%Y') if row.fecha_registro else "Sin fecha",
+            "código_cliente": "CL123456",
+            "razón_social": "Cliente S.A.",
+            "clasificacion_venta": "xxxxxxxx",
+            "potencial_venta": "xxxxxxxxx",
+            "documento": "4564684684",
+            "modalidad": "Crédito",
+            "cl_cm": "Compra Local",
+            "proveedor": "EMPRESA PROVEEDOR",
+            "nc": "Nota crédito cliente" if leyenda == "NNC" else "Nota crédito proveedor" if leyenda == "NNP" else "",
+            "estado": row.estado_id if row.estado_id is not None else None,
+            "estado_desc": row.estado_desc
+        })
+
+    return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list})
+
+
+
+
+

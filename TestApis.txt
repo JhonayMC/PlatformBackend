@@ -153,3 +153,9 @@ http://127.0.0.1:8001/api/v1/tipo-operaciones
 Consultar todos los reclamos y quejas
 http://127.0.0.1:8001/api/v1/consultar-estado-reclamo-queja
 
+
+
+Seguimiento:
+GET http://localhost:8001/api/v1/seguimiento?page=1&tipo_registro=reclamos&estado=2
+
+GET http://localhost:8001/api/v1/seguimiento?page=1&tipo_registro=quejas

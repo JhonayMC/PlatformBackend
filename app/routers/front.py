@@ -82,7 +82,18 @@ def obtener_motivos(tipo: str, db: Session = Depends(get_db), token=Depends(get_
 
     result = db.execute(query).fetchall()
     return [{"id": row[0], "nombre": row[1]} for row in result]
-    
+
+@router.get("/estados")
+def obtener_tipo_operaciones(db: Session = Depends(get_db), token=Depends(get_token)):
+    if isinstance(token, JSONResponse):
+        return token
+
+    query = text("SELECT id_estado, nombre FROM postventa.estados")
+    result = db.execute(query).fetchall()
+
+    return [{"id": row[0], "nombre": row[1]} for row in result]   
+
+
 @router.get("/buscar-dni/{dni}")
 def buscar_dni(dni: str, token=Depends(get_token)):
     if isinstance(token, JSONResponse):

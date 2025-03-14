@@ -187,3 +187,17 @@ def validar_token(credenciales: HTTPAuthorizationCredentials = Depends(security)
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
     except jwt.JWTError:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+
+
+def obtener_motivo(reclamo, queja_servicio, queja_producto, motivos_servicio_id, motivos_producto_id, db):
+    if reclamo == 1:
+        return "Falla de producto"
+    elif queja_servicio == 1:
+        query = text("SELECT nombre FROM postventa.motivos_servicio WHERE id = :id")
+        result = db.execute(query, {"id": motivos_servicio_id}).fetchone()
+        return result[0] if result else "Motivo no encontrado"
+    elif queja_producto == 1:
+        query = text("SELECT nombre FROM postventa.motivos_producto WHERE id = :id")
+        result = db.execute(query, {"id": motivos_producto_id}).fetchone()
+        return result[0] if result else "Motivo no encontrado"
+    return "Sin motivo"

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Optional, List
 from datetime import date
 from fastapi import Form, UploadFile, File
 
@@ -188,6 +188,13 @@ class ArchivoReclamoForm:
         self.form_5_images = form_5_images
         self.form_5_videos = form_5_videos
 
+
+class SeguimientoRequest(BaseModel):
+    page: int = Field(ge=1)
+    tipo_registro: Optional[str]  # "reclamos", "quejas" o vacío
+    estado: Optional[int]  # ID del estado (entero)
+    leyenda: Optional[str]  # "NNC" o "NNP" (Nota de crédito cliente/proveedor)
+    cliente: Optional[str]  
 
 # Datos simulados predefinidos en una estructura de diccionario
 simulated_docs = {
@@ -433,5 +440,14 @@ simulated_docs = {
                 "cantidad": 1
             }
         ]
+    }
+}
+
+clientes = {
+    "70981525": {
+        "nombre_completo": "angel obregon",
+        "documento": "4648846",
+        "clasificación_venta": "venta normal",
+        "potencial_venta": "potencial"
     }
 }
