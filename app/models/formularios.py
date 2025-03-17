@@ -196,6 +196,9 @@ class SeguimientoRequest(BaseModel):
     leyenda: Optional[str]  # "NNC" o "NNP" (Nota de crédito cliente/proveedor)
     cliente: Optional[str]  
 
+class LeidoNotificacionRequest(BaseModel):
+    id: int
+    
 # Datos simulados predefinidos en una estructura de diccionario
 simulated_docs = {
     "BOLETA": {

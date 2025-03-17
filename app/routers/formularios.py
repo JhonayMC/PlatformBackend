@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
 from app.models.formularios import ConsultarEstadoRequest, simulated_docs, clientes
-from app.models.formularios import ReclamoForm,QuejaServicioForm, ArchivoServicioForm, ReclamoProductoForm,ArchivoReclamoForm, SeguimientoRequest
+from app.models.formularios import ReclamoForm,QuejaServicioForm, ArchivoServicioForm, ReclamoProductoForm,ArchivoReclamoForm, SeguimientoRequest, LeidoNotificacionRequest
 from app.db.connection import SessionLocal
 from app.services.auth_service import verificar_token
 from app.utils.security import JWT_SECRET_KEY, ALGORITHM
@@ -366,6 +366,20 @@ async def registrar_reclamo(
         db.execute(insert_trazabilidad, {
             "formulario_id": reclamo_id,
             "estado_id": 2  # Estado en el que se encuentra el formulario
+        })
+
+                # Insertar notificación cuando se registra un reclamo
+        insert_notificacion = text("""
+            INSERT INTO postventa.notificaciones (usuarios_id, formulario_id, tipo, icono, mensaje)
+            VALUES (:usuarios_id, :formulario_id, 'Notificación por sistema', 'far fa-list', :mensaje)
+        """)
+
+        mensaje_notificacion = f"{reclamo_id} - {form_data.cliente}, generó un reclamo por 'Falla de producto'"
+
+        db.execute(insert_notificacion, {
+            "usuarios_id": usuarios_id,  
+            "formulario_id": reclamo_id,  
+            "mensaje": mensaje_notificacion
         })
 
         db.commit()
@@ -981,6 +995,132 @@ async def obtener_seguimiento(
 
     return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list})
 
+@router.get("/usuario-notificaciones")
+async def obtener_notificaciones(
+    top: int = Query(5, description="Cantidad máxima de notificaciones a devolver"),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    # Obtener el usuario desde el token
+    query_usuario = text("""
+        SELECT u.id AS usuarios_id, u.tipo_usuarios_id
+        FROM postventa.usuarios_tokens ut
+        JOIN postventa.usuarios u ON ut.usuarios_id = u.id
+        WHERE ut.token = :token
+    """)
+    
+    result_usuario = db.execute(query_usuario, {"token": token}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido o usuario no encontrado"})
+
+    usuarios_id, tipo_usuarios_id = result_usuario
+
+    # Si es trabajador, ve todas las notificaciones. Si es cliente, solo sus notificaciones.
+    query = """
+        SELECT id, leido_en, tipo, icono, mensaje, creado_en
+        FROM postventa.notificaciones
+    """
+    
+    params = {}
+    if tipo_usuarios_id == 1:  # Cliente
+        query += " WHERE usuarios_id = :usuarios_id"
+        params["usuarios_id"] = usuarios_id
+
+    query += " ORDER BY creado_en DESC LIMIT :top"
+    params["top"] = top
+
+    result = db.execute(text(query), params).fetchall()
+
+    notificaciones = [
+        {
+            "id": row.id,
+            "leido_en": row.leido_en.strftime('%Y-%m-%d %H:%M:%S') if row.leido_en else None,
+            "tipo": row.tipo,
+            "icono": row.icono,
+            "mensaje": row.mensaje,
+            "creado_en": row.creado_en.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        for row in result
+    ]
+
+    return JSONResponse(status_code=200, content={"estado": 200, "data": notificaciones})
+
+@router.post("/leido-notificacion")
+async def marcar_notificacion_leida(
+    request_body: LeidoNotificacionRequest,  # 🔹 Ahora recibe un modelo Pydantic
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+
+    # 🔹 Obtener usuario desde el token
+    query_usuario = text("""
+        SELECT u.id AS usuarios_id, u.tipo_usuarios_id 
+        FROM postventa.usuarios_tokens ut 
+        JOIN postventa.usuarios u ON ut.usuarios_id = u.id 
+        WHERE ut.token = :token
+    """)
+    result_usuario = db.execute(query_usuario, {"token": token}).fetchone()
+
+    if not result_usuario:
+        return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido o usuario no encontrado"})
+
+    usuarios_id, tipo_usuarios_id = result_usuario
+
+    # 🔹 Verificar si la notificación existe y pertenece al usuario
+    query_notificacion = text("""
+        SELECT id, usuarios_id, leido_en, tipo, icono, mensaje, creado_en
+        FROM postventa.notificaciones 
+        WHERE id = :id
+    """)
+    result_notificacion = db.execute(query_notificacion, {"id": request_body.id}).fetchone()
+
+    if not result_notificacion:
+        return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Notificación no encontrada"})
+
+    notificacion_id, notificacion_usuario_id, leido_en, tipo, icono, mensaje, creado_en = result_notificacion
+
+    # 🔹 Si es cliente, solo puede marcar sus propias notificaciones
+    if tipo_usuarios_id == 1 and notificacion_usuario_id != usuarios_id:
+        return JSONResponse(status_code=403, content={"estado": 403, "mensaje": "No tienes permiso para modificar esta notificación."})
+
+    # 🔹 Si la notificación ya está marcada como leída, devolver la misma información
+    if leido_en:
+        return JSONResponse(status_code=200, content={
+            "estado": 200,
+            "id": notificacion_id,
+            "leido_en": leido_en.strftime('%Y-%m-%d %H:%M:%S'),
+            "tipo": tipo,
+            "icono": icono,
+            "mensaje": mensaje,
+            "creado_en": creado_en.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    # 🔹 Marcar la notificación como leída
+    update_query = text("""
+        UPDATE postventa.notificaciones
+        SET leido_en = NOW()
+        WHERE id = :id
+    """)
+    db.execute(update_query, {"id": request_body.id})
+    db.commit()
+
+    # 🔹 Volver a obtener la notificación actualizada
+    result_notificacion_actualizada = db.execute(query_notificacion, {"id": request_body.id}).fetchone()
+    notificacion_id, notificacion_usuario_id, leido_en, tipo, icono, mensaje, creado_en = result_notificacion_actualizada
+
+    return JSONResponse(status_code=200, content={
+        "estado": 200,
+        "id": notificacion_id,
+        "leido_en": leido_en.strftime('%Y-%m-%d %H:%M:%S'),
+        "tipo": tipo,
+        "icono": icono,
+        "mensaje": mensaje,
+        "creado_en": creado_en.strftime('%Y-%m-%d %H:%M:%S')
+    })
 
 
 
