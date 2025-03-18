@@ -897,9 +897,9 @@ async def buscar_cliente(buscar: str = Query(..., description="Código del clien
 
 @router.get("/seguimiento")
 async def obtener_seguimiento(
-    page: int = Query(1, description="Número de página (debe ser un entero)"),
+    page: int = Query(1, description="Número de página (debe ser un entero)", gt=0),
     tipo_registro: Optional[str] = Query(None, description="Tipo de registro: 'reclamos', 'quejas' o vacío"),
-    estado: Optional[int] = Query(None, description="ID del estado"),
+    estado: Optional[str] = Query(None, description="ID del estado (debe ser un entero positivo)"),
     leyenda: Optional[str] = Query(None, description="Leyenda: 'NNC' o 'NNP'"),
     cliente: Optional[str] = Query(None, description="Código, razón social o RUC del cliente"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -938,17 +938,31 @@ async def obtener_seguimiento(
         elif tipo_registro == "quejas":
             query += " AND f.queja_servicio = 1"
 
-    # 🔹 Filtrar por estado
-    if estado is not None:
-        query += " AND f.estado_id = :estado"
-        params["estado"] = estado
+    # 🔹 Filtrar por estado solo si tiene un valor válido
+    if estado:
+        try:
+            estado_int = int(estado)  # Convertimos a entero solo si hay un valor
+            if estado_int > 0:
+                query += " AND f.estado_id = :estado"
+                params["estado"] = estado_int
+        except ValueError:
+            pass  # Si `estado` no es un número válido, simplemente lo ignoramos
 
-    # 🔹 Buscar por cliente (nombre, código o RUC)
+    #  Buscar por cliente (nombre, código o RUC)
     if cliente:
-        query += " AND (LOWER(f.nombres) LIKE LOWER(:cliente) OR LOWER(f.apellidos) LIKE LOWER(:cliente) OR f.dni LIKE :cliente)"
-        params["cliente"] = f"%{cliente}%"
+        query += """
+            AND (
+                LOWER(f.nombres) LIKE LOWER(:cliente) 
+                OR LOWER(f.apellidos) LIKE LOWER(:cliente) 
+                OR f.dni = :cliente  --  Comparación exacta para el DNI
+            )
+        """
+        #  Si `cliente` es numérico (DNI), usamos comparación exacta
+        #  Si es texto (nombre o apellido), usamos LIKE
+        params["cliente"] = cliente if cliente.isdigit() else f"%{cliente}%"
 
-    # 🔹 Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
+
+    #  Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
     query += " ORDER BY f.reclamo DESC, f.fecha_creacion DESC"
 
     # 🔹 Aplicar paginación
@@ -964,16 +978,15 @@ async def obtener_seguimiento(
     for idx, row in enumerate(result, start=offset + 1):
         # Determinar tipo de registro
         if row.reclamo == 1 or row.queja_producto == 1:
-            tipo = "Reclamo"
             id_prefix = "R"
         elif row.queja_servicio == 1:
-            tipo = "Queja"
             id_prefix = "Q"
         else:
-            tipo = "Desconocido"
             id_prefix = "X"  # En caso de datos inconsistentes
 
         motivo = obtener_motivo(row.reclamo, row.queja_servicio, row.queja_producto, row.motivos_servicio_id, row.motivos_producto_id, db)
+
+        leyenda = leyenda.strip() if leyenda and leyenda.strip() else "NNC"
 
         seguimiento_list.append({
             "nro": idx,
@@ -988,12 +1001,13 @@ async def obtener_seguimiento(
             "modalidad": "Crédito",
             "cl_cm": "Compra Local",
             "proveedor": "EMPRESA PROVEEDOR",
-            "nc": "Nota crédito cliente" if leyenda == "NNC" else "Nota crédito proveedor" if leyenda == "NNP" else "",
+            "nc": "Nota crédito cliente" if leyenda == "NNC" else "Nota crédito proveedor",            
             "estado": row.estado_id if row.estado_id is not None else None,
             "estado_desc": row.estado_desc
         })
 
     return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list})
+
 
 @router.get("/usuario-notificaciones")
 async def obtener_notificaciones(

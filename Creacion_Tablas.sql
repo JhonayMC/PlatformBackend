@@ -193,6 +193,30 @@ ALTER TABLE postventa.archivos
 ADD CONSTRAINT archivos_tipo_archivo_check 
 CHECK (tipo_archivo IN ('JPG', 'PNG', 'PDF', 'DOCX', 'MP4', 'PPTX'));  -- Agregar los tipos permitidos
 
+CREATE TABLE postventa.trazabilidad (
+    id_trazabilidad SERIAL PRIMARY KEY,
+    formulario_id INT NOT NULL,
+    estado_id INT NOT NULL,
+    fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_trazabilidad_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE,
+    CONSTRAINT fk_trazabilidad_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado) ON DELETE CASCADE
+);
+
+CREATE TABLE postventa.notificaciones (
+    id SERIAL PRIMARY KEY,
+    usuarios_id BIGINT NOT NULL,
+    formulario_id BIGINT NOT NULL,
+    tipo VARCHAR(50) NOT NULL,  -- Tipo de notificación (Ej: "Notificación por sistema")
+    icono VARCHAR(50) NOT NULL, -- Ícono de la notificación
+    mensaje TEXT NOT NULL,      -- Mensaje de la notificación
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Fecha de creación
+    leido_en TIMESTAMP NULL,    -- Fecha en que el usuario leyó la notificación (NULL si no se ha leído)
+    
+    -- Relación con la tabla de usuarios y formularios
+    CONSTRAINT fk_notificaciones_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
+    CONSTRAINT fk_notificaciones_formularios FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id)
+);
+
 
 CREATE TABLE postventa.tipo_correlativos (
     id BIGSERIAL PRIMARY KEY,
@@ -283,26 +307,3 @@ INSERT INTO postventa.estados (nombre) VALUES
 ('Solucionado');
 
 
-CREATE TABLE postventa.trazabilidad (
-    id_trazabilidad SERIAL PRIMARY KEY,
-    formulario_id INT NOT NULL,
-    estado_id INT NOT NULL,
-    fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_trazabilidad_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE,
-    CONSTRAINT fk_trazabilidad_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado) ON DELETE CASCADE
-);
-
-CREATE TABLE postventa.notificaciones (
-    id SERIAL PRIMARY KEY,
-    usuarios_id BIGINT NOT NULL,
-    formulario_id BIGINT NOT NULL,
-    tipo VARCHAR(50) NOT NULL,  -- Tipo de notificación (Ej: "Notificación por sistema")
-    icono VARCHAR(50) NOT NULL, -- Ícono de la notificación
-    mensaje TEXT NOT NULL,      -- Mensaje de la notificación
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Fecha de creación
-    leido_en TIMESTAMP NULL,    -- Fecha en que el usuario leyó la notificación (NULL si no se ha leído)
-    
-    -- Relación con la tabla de usuarios y formularios
-    CONSTRAINT fk_notificaciones_usuarios FOREIGN KEY (usuarios_id) REFERENCES postventa.usuarios(id),
-    CONSTRAINT fk_notificaciones_formularios FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id)
-);
