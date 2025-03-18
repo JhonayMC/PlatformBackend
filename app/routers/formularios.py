@@ -901,7 +901,7 @@ async def obtener_seguimiento(
     tipo_registro: Optional[str] = Query(None, description="Tipo de registro: 'reclamos', 'quejas' o vacío"),
     estado: Optional[str] = Query(None, description="ID del estado (debe ser un entero positivo)"),
     leyenda: Optional[str] = Query(None, description="Leyenda: 'NNC' o 'NNP'"),
-    cliente: Optional[str] = Query(None, description="Código, razón social o RUC del cliente"),
+    buscar: Optional[str] = Query(None, description="Código, razón social o RUC del cliente"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
@@ -948,21 +948,20 @@ async def obtener_seguimiento(
         except ValueError:
             pass  # Si `estado` no es un número válido, simplemente lo ignoramos
 
-    #  Buscar por cliente (nombre, código o RUC)
-    if cliente:
+    # 🔹 Buscar por cliente (nombre, código o RUC)
+    if buscar:
         query += """
             AND (
-                LOWER(f.nombres) LIKE LOWER(:cliente) 
-                OR LOWER(f.apellidos) LIKE LOWER(:cliente) 
-                OR f.dni = :cliente  --  Comparación exacta para el DNI
+                LOWER(f.nombres) LIKE LOWER(:buscar) 
+                OR LOWER(f.apellidos) LIKE LOWER(:buscar) 
+                OR f.dni = :buscar  --  Comparación exacta para el DNI
             )
         """
-        #  Si `cliente` es numérico (DNI), usamos comparación exacta
+        #  Si `buscar` es numérico (DNI), usamos comparación exacta
         #  Si es texto (nombre o apellido), usamos LIKE
-        params["cliente"] = cliente if cliente.isdigit() else f"%{cliente}%"
+        params["buscar"] = buscar if buscar.isdigit() else f"%{buscar}%"
 
-
-    #  Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
+    # 🔹 Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
     query += " ORDER BY f.reclamo DESC, f.fecha_creacion DESC"
 
     # 🔹 Aplicar paginación
@@ -1007,6 +1006,7 @@ async def obtener_seguimiento(
         })
 
     return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list})
+
 
 
 @router.get("/usuario-notificaciones")
