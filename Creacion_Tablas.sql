@@ -5,7 +5,6 @@ SET search_path TO POSTVENTA;
 CREATE TABLE TIPO_USUARIOS (
     id BIGSERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    aplicaciones VARCHAR(5000) NULL,
     accesos VARCHAR(5000) NULL,
     subaccesos VARCHAR(5000) NULL,
     permisos VARCHAR(5000) NULL,

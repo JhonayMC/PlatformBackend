@@ -178,7 +178,7 @@ def consultar_estado_reclamo_queja(
         total_pages = (total_items + items_per_page - 1) // items_per_page  # Redondeo hacia arriba
         
         # Información de paginación
-        pagination_info = {
+        paginacion = {
             "page": page,
             "items_per_page": items_per_page,
             "total_items": total_items,
@@ -193,7 +193,7 @@ def consultar_estado_reclamo_queja(
                 "estado": 200, 
                 "mensaje": "Consulta exitosa.", 
                 "data": data_completa,
-                "pagination": pagination_info
+                "paginacion": paginacion
             }
         )
 
@@ -906,6 +906,7 @@ async def obtener_seguimiento(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
+    items_per_page = 10  # 🔹 Cantidad de registros por página
 
     # 🔹 Validar usuario con el token
     query_usuario = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
@@ -917,95 +918,100 @@ async def obtener_seguimiento(
     usuarios_id = result_usuario[0]
 
     # 🔹 Construcción del Query Base
-    query = """
+    base_query = """
+        FROM postventa.formularios f
+        LEFT JOIN postventa.estados e ON f.estado_id = e.id_estado
+        WHERE 1=1
+    """
+    filters = ""
+    params = {}
+
+    # 🔹 Filtrar por tipo de registro
+    if tipo_registro:
+        if tipo_registro == "reclamos":
+            filters += " AND (f.reclamo = 1 OR f.queja_producto = 1)"
+        elif tipo_registro == "quejas":
+            filters += " AND f.queja_servicio = 1"
+
+    # 🔹 Filtrar por estado solo si tiene un valor válido
+    if estado:
+        try:
+            estado_int = int(estado)
+            if estado_int > 0:
+                filters += " AND f.estado_id = :estado"
+                params["estado"] = estado_int
+        except ValueError:
+            pass
+
+    # 🔹 Buscar por cliente
+    if buscar:
+        filters += """
+            AND (
+                LOWER(f.nombres) LIKE LOWER(:buscar) 
+                OR LOWER(f.apellidos) LIKE LOWER(:buscar) 
+                OR f.dni = :buscar
+            )
+        """
+        params["buscar"] = buscar if buscar.isdigit() else f"%{buscar}%"
+
+    # 🔹 Obtener el total de registros
+    total_query = f"SELECT COUNT(*) {base_query} {filters}"
+    total_items = db.execute(text(total_query), params).scalar()
+    total_pages = (total_items + items_per_page - 1) // items_per_page  # 🔹 Redondeo hacia arriba
+
+    # 🔹 Aplicar paginación
+    offset = (page - 1) * items_per_page
+    data_query = f"""
         SELECT f.id, 
                f.estado_id, 
                COALESCE(e.nombre, 'Sin estado') AS estado_desc, 
                f.fecha_creacion AS fecha_registro, 
                f.reclamo, f.queja_servicio, f.queja_producto,
                f.motivos_servicio_id, f.motivos_producto_id
-        FROM postventa.formularios f
-        LEFT JOIN postventa.estados e ON f.estado_id = e.id_estado
-        WHERE 1=1
+        {base_query} 
+        {filters}
+        ORDER BY f.reclamo DESC, f.fecha_creacion DESC
+        LIMIT :limit OFFSET :offset
     """
-
-    params = {}
-
-    # 🔹 Filtrar por tipo de registro
-    if tipo_registro:
-        if tipo_registro == "reclamos":
-            query += " AND (f.reclamo = 1 OR f.queja_producto = 1)"
-        elif tipo_registro == "quejas":
-            query += " AND f.queja_servicio = 1"
-
-    # 🔹 Filtrar por estado solo si tiene un valor válido
-    if estado:
-        try:
-            estado_int = int(estado)  # Convertimos a entero solo si hay un valor
-            if estado_int > 0:
-                query += " AND f.estado_id = :estado"
-                params["estado"] = estado_int
-        except ValueError:
-            pass  # Si `estado` no es un número válido, simplemente lo ignoramos
-
-    # 🔹 Buscar por cliente (nombre, código o RUC)
-    if buscar:
-        query += """
-            AND (
-                LOWER(f.nombres) LIKE LOWER(:buscar) 
-                OR LOWER(f.apellidos) LIKE LOWER(:buscar) 
-                OR f.dni = :buscar  --  Comparación exacta para el DNI
-            )
-        """
-        #  Si `buscar` es numérico (DNI), usamos comparación exacta
-        #  Si es texto (nombre o apellido), usamos LIKE
-        params["buscar"] = buscar if buscar.isdigit() else f"%{buscar}%"
-
-    # 🔹 Ordenar por tipo de registro y fecha (Reclamos primero, luego Quejas y orden por fecha descendente)
-    query += " ORDER BY f.reclamo DESC, f.fecha_creacion DESC"
-
-    # 🔹 Aplicar paginación
-    offset = (page - 1) * 10
-    query += " LIMIT 10 OFFSET :offset"
-    params["offset"] = offset
-
-    # 🔹 Ejecutar la consulta
-    result = db.execute(text(query), params).fetchall()
+    params.update({"limit": items_per_page, "offset": offset})
+    result = db.execute(text(data_query), params).fetchall()
 
     # 🔹 Formatear la respuesta
     seguimiento_list = []
     for idx, row in enumerate(result, start=offset + 1):
-        # Determinar tipo de registro
-        if row.reclamo == 1 or row.queja_producto == 1:
-            id_prefix = "R"
-        elif row.queja_servicio == 1:
-            id_prefix = "Q"
-        else:
-            id_prefix = "X"  # En caso de datos inconsistentes
-
+        id_prefix = "R" if (row.reclamo == 1 or row.queja_producto == 1) else "Q" if row.queja_servicio == 1 else "X"
         motivo = obtener_motivo(row.reclamo, row.queja_servicio, row.queja_producto, row.motivos_servicio_id, row.motivos_producto_id, db)
-
-        leyenda = leyenda.strip() if leyenda and leyenda.strip() else "NNC"
+        leyenda_texto = leyenda.strip() if leyenda and leyenda.strip() else "NNC"
 
         seguimiento_list.append({
             "nro": idx,
-            "id": f"{id_prefix}{row.id:03d}",  # 🔹 Agrega "R" para Reclamos y "Q" para Quejas
+            "id": f"{id_prefix}{row.id:03d}",
             "motivo": motivo,
             "fecha_registro": row.fecha_registro.strftime('%d/%m/%Y') if row.fecha_registro else "Sin fecha",
-            "código_cliente": "CL123456",
-            "razón_social": "Cliente S.A.",
+            "codigo_cliente": "CL123456",
+            "razon_social": "Cliente S.A.",
             "clasificacion_venta": "xxxxxxxx",
             "potencial_venta": "xxxxxxxxx",
             "documento": "4564684684",
             "modalidad": "Crédito",
             "cl_cm": "Compra Local",
             "proveedor": "EMPRESA PROVEEDOR",
-            "nc": "Nota crédito cliente" if leyenda == "NNC" else "Nota crédito proveedor",            
+            "nc": "Nota crédito cliente" if leyenda_texto == "NNC" else "Nota crédito proveedor",
             "estado": row.estado_id if row.estado_id is not None else None,
             "estado_desc": row.estado_desc
         })
 
-    return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list})
+    # 🔹 Información de paginación
+    paginacion = {
+        "page": page,
+        "items_per_page": items_per_page,
+        "total_items": total_items,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1
+    }
+
+    return JSONResponse(status_code=200, content={"estado": 200, "data": seguimiento_list, "pagination_info": paginacion})
 
 
 
