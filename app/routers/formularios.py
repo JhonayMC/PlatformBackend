@@ -17,12 +17,18 @@ from reportlab.lib.colors import blue, black
 import re, os
 import requests
 from fastapi import BackgroundTasks
-from app.services.background_tasks import generar_pdf_background
+from app.services.background_tasks import generar_pdf_background, buscar_documento_background
 from app.services.auth_service import obtener_motivo
-
+import logging
+import time
+import httpx
 
 router = APIRouter(prefix="/api/v1")
 security = HTTPBearer()
+
+# Configurar el logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_db():
     db = SessionLocal()
@@ -1189,4 +1195,284 @@ async def anular_reclamo_queja(
 
     return JSONResponse(status_code=200, content={"estado": 200, "mensaje": "Se ha anulado"})
 
+@router.get("/reclamo-queja/{id}", response_class=JSONResponse)
+async def get_reclamo_queja(
+    id: int,
+    background_tasks: BackgroundTasks,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Validar token
+        token = credentials.credentials
+        result_token = db.execute(
+            text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token"),
+            {"token": token}
+        ).mappings().fetchone()
+        if not result_token:
+            return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
+        
+        logger.info("Obteniendo datos del formulario...")
+        # Obtener datos del formulario
+        result = db.execute(text("""
+            SELECT id, serie, correlativo, tipo_correlativos_id, producto_id, reclamo, queja_producto, 
+                   queja_servicio, fecha_creacion, nombres, apellidos, dni, telefono, email, fecha, 
+                   motivos_producto_id, motivos_servicio_id, placa_vehiculo, marca, modelo_vehiculo, anio,
+                   modelo_motor, tipo_operacion_id, fecha_instalacion, horas_uso_reclamo, km_instalacion, 
+                   km_actual, detalle_reclamo, detalle_queja, estado_id, en_tienda
+            FROM postventa.formularios WHERE id = :id
+        """), {"id": id}).mappings().fetchone()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Formulario no encontrado")
+        
+        # Preparar URL para la API externa
+        logger.info("Preparando URL para la API externa...")
+        tipo_doc = result['tipo_correlativos_id']
+        serie = result['serie'] or ""
+        correlativo = result['correlativo']
+        buscar_doc_url = f"http://localhost:8001/api/v1/buscar-documento?tipo_documento={tipo_doc}"
+        buscar_doc_url += f"&serie={serie}&correlativo={correlativo}" if tipo_doc in [1, 2] else f"&correlativo={correlativo}"
+        logger.info(f"URL preparada: {buscar_doc_url}")
+        
+        # Determinar tipo de registro y motivo
+        tipo_registro, motivo, detalle = "", "", ""
+        if result['reclamo'] == 1:
+            tipo_registro, detalle, motivo = "Reclamo", result['detalle_reclamo'], "Falla de producto"
+        elif result['queja_producto'] == 1:
+            tipo_registro, detalle = "Otro tipo de reclamo", result['detalle_reclamo']
+            motivo_result = db.execute(
+                text("SELECT nombre FROM motivos_producto WHERE id = :id"),
+                {"id": result['motivos_producto_id']}
+            ).mappings().fetchone()
+            motivo = motivo_result['nombre'] if motivo_result else ""
+        elif result['queja_servicio'] == 1:
+            tipo_registro, detalle = "Queja", result['detalle_queja']
+            motivo_result = db.execute(
+                text("SELECT nombre FROM motivos_servicio WHERE id = :id"),
+                {"id": result['motivos_servicio_id']}
+            ).mappings().fetchone()
+            motivo = motivo_result['nombre'] if motivo_result else ""
+            
+        # Estado y tipo de operación
+        estado_desc = db.execute(
+            text("SELECT nombre FROM postventa.estados WHERE id_estado = :id_estado"),
+            {"id_estado": result['estado_id']}
+        ).scalar() or ""
+        tipo_operacion = db.execute(
+            text("SELECT nombre FROM postventa.tipo_operaciones WHERE id = :id"),
+            {"id": result['tipo_operacion_id']}
+        ).scalar() or ""
+        
+        # Archivos adjuntos
+        adjuntos_result = db.execute(text("""
+            SELECT archivo_url, tipo_archivo FROM postventa.archivos
+            WHERE formulario_id = :id AND tipo_archivo IN ('JPG', 'PNG', 'MP4')
+        """), {"id": id}).mappings().fetchall()
+        adjuntos = [{
+            "id": i+1,
+            "nombre": f"{adj['archivo_url'].split('/')[-1]}",
+            "url": adj['archivo_url'],
+            "extension": adj['tipo_archivo'].lower()
+        } for i, adj in enumerate(adjuntos_result)]
+        
+        # PDF
+        pdf_result = db.execute(text("""
+            SELECT archivo_url FROM postventa.archivos
+            WHERE formulario_id = :id AND tipo_archivo = 'PDF'
+        """), {"id": id}).mappings().fetchone()
+        pdf = {}
+        if pdf_result:
+            archivo_url = pdf_result['archivo_url']
+            pdf = {
+                "id": 1,
+                "nombre": f"{archivo_url.split('/')[-1]}",
+                "url": archivo_url,
+                "extension": "pdf"
+            }
+            
+        # Comentarios
+        comentarios_result = db.execute(text("""
+            SELECT usuario, fecha, comentario FROM postventa.comentarios
+            WHERE formulario_id = :id ORDER BY fecha
+        """), {"id": id}).mappings().fetchall()
+        comentarios = [{
+            "id": i+1,
+            "usuario": com['usuario'],
+            "fecha": com['fecha'].strftime("%d/%m/%Y %H:%M:%S") if isinstance(com['fecha'], datetime) else com['fecha'],
+            "comentario": com['comentario']
+        } for i, com in enumerate(comentarios_result)]
+        
+        # Construcción del response base
+        response = {
+            "id": id,
+            "tipo_registro": tipo_registro,
+            "motivo": motivo,
+            "fecha_registro": result['fecha_creacion'].strftime("%d/%m/%Y") if isinstance(result['fecha_creacion'], datetime) else result['fecha_creacion'],
+            "registrador": {
+                "nombre": f"{result['nombres']} {result['apellidos']}",
+                "documento": result['dni'],
+                "celular": result['telefono'],
+                "correo": result['email']
+            },
+            "nro_factura": f"{serie}-{correlativo}" if serie else correlativo,
+            "fecha_venta": result['fecha'].strftime("%d/%m/%Y") if isinstance(result['fecha'], datetime) else result['fecha'],
+            "transporte": {
+                "nro_placa": result['placa_vehiculo'] or "",
+                "marca": result['marca'] or "",
+                "anio": result['anio'] or "",  
+                "modelo": result['modelo_vehiculo'] or "",
+                "motor": result['modelo_motor'] or ""
+            },
+            "tipo_operacion": tipo_operacion,
+            "fecha_instalacion": result['fecha_instalacion'].strftime("%d/%m/%Y") if isinstance(result['fecha_instalacion'], datetime) else result['fecha_instalacion'] or "",
+            "hora_uso": result['horas_uso_reclamo'] or "",
+            "km_instalacion": result['km_instalacion'] or "",
+            "km_actual": result['km_actual'] or "",
+            "detalle": detalle,
+            "en_tienda": bool(result['en_tienda']),
+            "estado": result['estado_id'],
+            "estado_desc": estado_desc,
+            "adjuntos": adjuntos,
+            "pdf": pdf,
+            "comentarios": comentarios,
+            "productos": []  # Por defecto, lista vacía
+        }
+        
+        #comentarios_data = []
+        #if result['comentarios']:  # Asegúrate de que 'result' tenga la key 'comentarios'
+         #   for idx, c in enumerate(result['comentarios'], start=1):
+          #      comentarios_data.append({
+           #         "id": idx,
+            #        "usuario": f"{c['nombres']} {c['apellidos']}",
+             #       "fecha": c['fecha'].strftime("%d/%m/%Y %H:%M:%S") if isinstance(c['fecha'], datetime) else c['fecha'],
+              #      "comentario": c['comentario']
+               # })
 
+        # Construcción del response base con el orden correcto
+        response = {
+            "id": id,
+            "cliente": {
+                "codigo": "",  # Estos valores se actualizarán después con la API
+                "documento": "",
+                "nombre_completo": "",
+                "clasificacion_venta": "",
+                "potencial_venta": ""
+            },
+            "tipo_registro": tipo_registro,
+            "motivo": motivo,
+            "fecha_registro": result['fecha_creacion'].strftime("%d/%m/%Y") if isinstance(result['fecha_creacion'], datetime) else result['fecha_creacion'],
+            "registrador": {
+                "nombre": f"{result['nombres']} {result['apellidos']}",
+                "documento": result['dni'],
+                "celular": result['telefono'],
+                "correo": result['email']
+            },
+            "nro_factura": f"{serie}-{correlativo}" if serie else correlativo,
+            "fecha_venta": result['fecha'].strftime("%d/%m/%Y") if isinstance(result['fecha'], datetime) else result['fecha'],
+            "nro_interno": "",  
+            "provincia": "", 
+            "nro_guia_remision": "", 
+            "sucursal": "", 
+            "almacen": "",  
+            "vendedor": "",  
+            "condicion_pago": "",  
+            "transportista": "", 
+            "productos": [], 
+            "transporte": {
+                "nro_placa": result['placa_vehiculo'] or "",
+                "marca": result['marca'] or "",
+                "anio": result['anio'] or "",  
+                "modelo": result['modelo_vehiculo'] or "",
+                "motor": result['modelo_motor'] or ""
+            },
+            "tipo_operacion": tipo_operacion,
+            "fecha_instalacion": result['fecha_instalacion'].strftime("%d/%m/%Y") if isinstance(result['fecha_instalacion'], datetime) else result['fecha_instalacion'] or "",
+            "hora_uso": result['horas_uso_reclamo'] or "",
+            "km_instalacion": result['km_instalacion'] or "",
+            "km_actual": result['km_actual'] or "",
+            "km_recorrido": (result['km_actual'] - result['km_instalacion']) if (result['km_actual'] is not None and result['km_instalacion'] is not None) else "",
+            "detalle": detalle,
+            "en_tienda": bool(result['en_tienda']),
+            "estado": result['estado_id'],
+            "estado_desc": estado_desc,
+            "adjuntos": adjuntos,
+            "pdf": pdf,
+            #"comentarios": comentarios_data
+            "comentarios": [
+                {
+                    "id": 1,
+                    "usuario": "Juan Perez",
+                    "fecha": "01/01/2024 00:00:00",
+                    "comentario": "Comentario 1"
+                },
+                {
+                    "id": 2,
+                    "usuario": "Juan Perez",
+                    "fecha": "01/01/2024 00:00:00",
+                    "comentario": "Comentario 2"
+                }
+            ]
+        }
+
+        # Intentar obtener los datos de la API externa usando httpx (asíncrono)
+        try:
+            logger.info("Llamando a API externa...")
+            async with httpx.AsyncClient(timeout=10) as client:
+                api_response = await client.get(
+                    buscar_doc_url,
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                data = api_response.json()
+                logger.info("Respuesta de API externa recibida correctamente")
+                
+                if 'data' in data:
+                    api_data = data['data']
+                    print("DATA DE LA API EXTERNA:", api_data)
+
+                    response["cliente"] = {
+                        "codigo": api_data['cliente']['codigo'],
+                        "documento": api_data['cliente']['documento'],
+                        "nombre_completo": api_data['cliente']['nombre_completo'],
+                    }
+                    response["cliente"]["clasificacion_venta"] = api_data.get('clasificacion_venta', '')
+                    response["cliente"]["potencial_venta"] = api_data.get('potencial_venta', '')
+                    response["nro_interno"] = api_data.get('nrointerno', '')
+                    response["provincia"] = api_data.get('departamento', '')
+                    response["nro_guia_remision"] = api_data.get('guiaremision', '')
+                    response["sucursal"] = api_data.get('sucursal', '')
+                    response["almacen"] = api_data.get('almacen', '')
+                    response["vendedor"] = api_data.get('vendedor', '')
+                    response["condicion_pago"] = api_data.get('condicionpago', '')
+                    response["transportista"] = api_data.get('transportista', '')
+                    
+                    # Buscar el producto
+                    productos = api_data.get('productos', [])
+                    producto_id = result['producto_id']
+                    producto = next((p for p in productos if p['codigo'] == producto_id), None)
+                    if producto:
+                        response["productos"] = [{
+                            "codigo": producto['codigo'],
+                            "linea": producto.get('linea', ''),
+                            "organizacion": producto.get('organizacion', ''),
+                            "marca": producto.get('marca', ''),
+                            "marca_desc": producto.get('marca_desc', ''),
+                            "fabrica": producto.get('fabrica', ''),
+                            "articulo": producto.get('articulo', ''),
+                            "nombre": producto.get('nombre', ''),
+                            "precio_venta": str(producto.get('precio_venta', '')),
+                            "cantidad": producto.get('cantidad', 1),
+                            "und_reclamo": "Und"
+                        }]
+        except httpx.TimeoutException:
+            logger.error("Timeout en llamada a API externa")
+            # Continúa con la respuesta parcial sin los datos de la API
+        except Exception as e:
+            logger.error(f"Error en llamada a API externa: {str(e)}")
+            # Continúa con la respuesta parcial sin los datos de la API
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error general: {str(e)}", exc_info=True)
+        return JSONResponse(status_code=500, content={"message": f"Error al procesar la solicitud: {str(e)}"})

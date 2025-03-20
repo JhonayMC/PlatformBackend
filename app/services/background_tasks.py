@@ -7,8 +7,11 @@ from reportlab.lib.pagesizes import letter
 from sqlalchemy import text
 import pdfkit
 import asyncio 
+import httpx
+import logging
+import time
 from app.services.email_service import enviar_correo_reclamo  
-
+logger = logging.getLogger(__name__)
 
 UPLOADS_PDFS = "uploads/pdfs"  # Ruta donde se guardan los PDFs
 
@@ -179,3 +182,22 @@ def generar_pdf_con_datos(datos_reclamo, doc_data, reclamo_id, tipo_reporte, es_
         print(f"❌ Error al insertar en la base de datos: {str(e)}")
 
 
+async def buscar_documento_background(url: str, token: str):
+    """
+    Función que se ejecuta en segundo plano para buscar un documento sin bloquear la API principal.
+    """
+    logger.info(f"Iniciando búsqueda en background: {url}")
+    try:
+        # Usar timeout para evitar bloqueos indefinidos
+        logger.info("Enviando solicitud a API externa...")
+        response = await httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5
+        )
+        data = response.json()
+        logger.info(f"✅ Respuesta de API externa recibida en {time.time()}s")
+        return data
+    except Exception as e:
+        logger.error(f"❌ Error al buscar documento en background: {str(e)}")
+        return {"estado": 500, "mensaje": f"Error al buscar documento: {str(e)}"}
