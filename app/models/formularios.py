@@ -198,6 +198,10 @@ class SeguimientoRequest(BaseModel):
 
 class LeidoNotificacionRequest(BaseModel):
     id: int
+
+class AnularRequest(BaseModel):
+    id: int
+    motivo: str
     
 # Datos simulados predefinidos en una estructura de diccionario
 simulated_docs = {
@@ -216,6 +220,7 @@ simulated_docs = {
         "clasificacion_venta" : "xxxxxxxx",
         "potencial_venta": "xxxxxxxxxx",
         "cliente": {
+            "codigo": "123456",
             "nombre_completo": "Samuel Roman Tito",
             "documento": "65465445"
         },

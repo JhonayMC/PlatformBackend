@@ -197,6 +197,7 @@ CREATE TABLE postventa.trazabilidad (
     formulario_id INT NOT NULL,
     estado_id INT NOT NULL,
     fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    mensaje TEXT,
     CONSTRAINT fk_trazabilidad_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE,
     CONSTRAINT fk_trazabilidad_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado) ON DELETE CASCADE
 );
@@ -216,6 +217,14 @@ CREATE TABLE postventa.notificaciones (
     CONSTRAINT fk_notificaciones_formularios FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id)
 );
 
+CREATE TABLE postventa.comentarios (
+    id SERIAL PRIMARY KEY,
+    formulario_id INT NOT NULL,
+    usuario VARCHAR(100) NOT NULL,
+    fecha TIMESTAMP NOT NULL,
+    comentario TEXT NOT NULL,
+    CONSTRAINT fk_comentarios_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE
+);
 
 CREATE TABLE postventa.tipo_correlativos (
     id BIGSERIAL PRIMARY KEY,
