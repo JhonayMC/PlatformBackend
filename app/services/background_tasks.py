@@ -196,7 +196,7 @@ async def buscar_documento_background(url: str, token: str):
             timeout=5
         )
         data = response.json()
-        logger.info(f"✅ Respuesta de API externa recibida en {time.time()}s")
+        #logger.info(f"✅ Respuesta de API externa recibida en {time.time()}s")
         return data
     except Exception as e:
         logger.error(f"❌ Error al buscar documento en background: {str(e)}")

@@ -1195,9 +1195,9 @@ async def anular_reclamo_queja(
 
     return JSONResponse(status_code=200, content={"estado": 200, "mensaje": "Se ha anulado"})
 
-@router.get("/reclamo-queja/{id}", response_class=JSONResponse)
+@router.get("/reclamo-queja/{codigo}", response_class=JSONResponse)
 async def get_reclamo_queja(
-    id: int,
+    codigo: str,  # Cambiado de id:int a codigo:str
     background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -1211,20 +1211,22 @@ async def get_reclamo_queja(
         ).mappings().fetchone()
         if not result_token:
             return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido"})
-        
-        logger.info("Obteniendo datos del formulario...")
-        # Obtener datos del formulario
+       
+        logger.info(f"Obteniendo datos del formulario con código: {codigo}...")
+        # Obtener datos del formulario usando el código en lugar del id
         result = db.execute(text("""
-            SELECT id, serie, correlativo, tipo_correlativos_id, producto_id, reclamo, queja_producto, 
-                   queja_servicio, fecha_creacion, nombres, apellidos, dni, telefono, email, fecha, 
+            SELECT id, codigo, serie, correlativo, tipo_correlativos_id, producto_id, reclamo, queja_producto,
+                   queja_servicio, fecha_creacion, nombres, apellidos, dni, telefono, email, fecha,
                    motivos_producto_id, motivos_servicio_id, placa_vehiculo, marca, modelo_vehiculo, anio,
-                   modelo_motor, tipo_operacion_id, fecha_instalacion, horas_uso_reclamo, km_instalacion, 
+                   modelo_motor, tipo_operacion_id, fecha_instalacion, horas_uso_reclamo, km_instalacion,
                    km_actual, detalle_reclamo, detalle_queja, estado_id, en_tienda
-            FROM postventa.formularios WHERE id = :id
-        """), {"id": id}).mappings().fetchone()
+            FROM postventa.formularios WHERE codigo = :codigo
+        """), {"codigo": codigo}).mappings().fetchone()
         
         if not result:
             raise HTTPException(status_code=404, detail="Formulario no encontrado")
+        
+        formulario_id = result['id']
         
         # Preparar URL para la API externa
         logger.info("Preparando URL para la API externa...")
@@ -1268,7 +1270,7 @@ async def get_reclamo_queja(
         adjuntos_result = db.execute(text("""
             SELECT archivo_url, tipo_archivo FROM postventa.archivos
             WHERE formulario_id = :id AND tipo_archivo IN ('JPG', 'PNG', 'MP4')
-        """), {"id": id}).mappings().fetchall()
+        """), {"id": formulario_id}).mappings().fetchall()
         adjuntos = [{
             "id": i+1,
             "nombre": f"{adj['archivo_url'].split('/')[-1]}",
@@ -1280,7 +1282,7 @@ async def get_reclamo_queja(
         pdf_result = db.execute(text("""
             SELECT archivo_url FROM postventa.archivos
             WHERE formulario_id = :id AND tipo_archivo = 'PDF'
-        """), {"id": id}).mappings().fetchone()
+        """), {"id": formulario_id}).mappings().fetchone()
         pdf = {}
         if pdf_result:
             archivo_url = pdf_result['archivo_url']
@@ -1295,7 +1297,7 @@ async def get_reclamo_queja(
         comentarios_result = db.execute(text("""
             SELECT usuario, fecha, comentario FROM postventa.comentarios
             WHERE formulario_id = :id ORDER BY fecha
-        """), {"id": id}).mappings().fetchall()
+        """), {"id": formulario_id}).mappings().fetchall()
         comentarios = [{
             "id": i+1,
             "usuario": com['usuario'],
@@ -1305,7 +1307,7 @@ async def get_reclamo_queja(
         
         # Construcción del response base
         response = {
-            "id": id,
+            "id": formulario_id,
             "tipo_registro": tipo_registro,
             "motivo": motivo,
             "fecha_registro": result['fecha_creacion'].strftime("%d/%m/%Y") if isinstance(result['fecha_creacion'], datetime) else result['fecha_creacion'],
@@ -1351,7 +1353,7 @@ async def get_reclamo_queja(
 
         # Construcción del response base con el orden correcto
         response = {
-            "id": id,
+            "id": codigo,
             "cliente": {
                 "codigo": "",  # Estos valores se actualizarán después con la API
                 "documento": "",
@@ -1428,7 +1430,7 @@ async def get_reclamo_queja(
                 
                 if 'data' in data:
                     api_data = data['data']
-                    print("DATA DE LA API EXTERNA:", api_data)
+                    #print("DATA DE LA API EXTERNA:", api_data)
 
                     response["cliente"] = {
                         "codigo": api_data['cliente']['codigo'],
