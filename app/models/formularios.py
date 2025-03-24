@@ -200,7 +200,7 @@ class LeidoNotificacionRequest(BaseModel):
     id: int
 
 class AnularRequest(BaseModel):
-    id: int
+    id: str
     motivo: str
     
 # Datos simulados predefinidos en una estructura de diccionario

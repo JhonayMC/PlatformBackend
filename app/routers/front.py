@@ -93,6 +93,21 @@ def obtener_tipo_operaciones(db: Session = Depends(get_db), token=Depends(get_to
 
     return [{"id": row[0], "nombre": row[1]} for row in result]   
 
+@router.get("/origenes")
+def listar_origenes(
+    db: Session = Depends(get_db),
+    token=Depends(get_token)  # ✅ Validación del token
+):
+    # Si el token es inválido, el get_token devuelve un JSONResponse directo
+    if isinstance(token, JSONResponse):
+        return token
+
+    # Obtener los orígenes
+    query = text("SELECT id, nombre FROM postventa.origenes ORDER BY id ASC")
+    result = db.execute(query).fetchall()
+
+    # Devolver la lista simple como /estados
+    return [{"id": row[0], "nombre": row[1]} for row in result]
 
 @router.get("/buscar-dni/{dni}")
 def buscar_dni(dni: str, token=Depends(get_token)):
@@ -116,7 +131,6 @@ def buscar_dni(dni: str, token=Depends(get_token)):
         }
     )
 
-    
 @router.get("/buscar-placa/{placa}")
 def buscar_placa(placa: str, token=Depends(get_token)):
     if isinstance(token, JSONResponse):

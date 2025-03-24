@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, formularios, front
+from app.routers import auth, formularios, front, postventa
 from app.config import CORS_ORIGINS
 from fastapi.exceptions import RequestValidationError
 from app.exception_handlers import validation_exception_handler
@@ -21,12 +21,14 @@ UPLOADS_IMAGENES = "uploads/imagenes"
 UPLOADS_VIDEOS = "uploads/videos"
 UPLOADS_DOCUMENTOS = "uploads/documentos"
 UPLOADS_PDFS = "uploads/pdfs"
+UPLOADS_GUIA = "uploads/guia"
 
-# Servir archivos de imágenes y videos en el mismo servidor (puerto 8001)
 app.mount("/uploads/imagenes", StaticFiles(directory=UPLOADS_IMAGENES), name="imagenes")
 app.mount("/uploads/videos", StaticFiles(directory=UPLOADS_VIDEOS), name="videos")
 app.mount("/uploads/documentos", StaticFiles(directory=UPLOADS_DOCUMENTOS), name="documentos")
-app.mount("/uploads/pdfs", StaticFiles(directory="uploads/pdfs"), name="pdfs")
+app.mount("/uploads/pdfs", StaticFiles(directory=UPLOADS_PDFS), name="pdfs")
+app.mount("/uploads/guia", StaticFiles(directory=UPLOADS_GUIA), name="guia")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,3 +46,4 @@ async def favicon():
 app.include_router(auth.router)
 app.include_router(formularios.router)
 app.include_router(front.router)
+app.include_router(postventa.router)

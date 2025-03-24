@@ -880,7 +880,6 @@ async def buscar_documento(
     # Retornar la información del documento
     return JSONResponse(content={"data": documento_info})
 
-
 @router.get("/buscar-cliente")
 async def buscar_cliente(buscar: str = Query(..., description="Código del cliente a buscar")):
     """
@@ -1149,7 +1148,7 @@ async def anular_reclamo_queja(
 ):
     token = credentials.credentials
 
-    # 🔒 Validar token
+    # Validar token
     query_usuario = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_usuario = db.execute(query_usuario, {"token": token}).fetchone()
 
@@ -1162,9 +1161,10 @@ async def anular_reclamo_queja(
     query_formulario = text("""
         SELECT id, estado_id 
         FROM postventa.formularios 
-        WHERE id = :id
+        WHERE codigo = :codigo
     """)
-    formulario = db.execute(query_formulario, {"id": data.id}).fetchone()
+    formulario = db.execute(query_formulario, {"codigo": data.id}).fetchone()
+
 
     if not formulario:
         return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Formulario no encontrado"})
@@ -1172,13 +1172,15 @@ async def anular_reclamo_queja(
     if formulario.estado_id != 2:
         return JSONResponse(status_code=400, content={"estado": 400, "mensaje": "Solo se puede anular formularios en estado 'GENERADO'"})
 
+    formulario_id = formulario.id
+
     # 📝 Actualizar el estado del formulario a 'ANULADO' (estado_id = 4)
     update_query = text("""
         UPDATE postventa.formularios
         SET estado_id = 4
         WHERE id = :id
     """)
-    db.execute(update_query, {"id": data.id})
+    db.execute(update_query, {"id": formulario_id})
 
     # 🗒 Insertar trazabilidad con el motivo
     insert_trazabilidad = text("""
@@ -1186,7 +1188,7 @@ async def anular_reclamo_queja(
         VALUES (:formulario_id, 4, :fecha_cambio, :mensaje)
     """)
     db.execute(insert_trazabilidad, {
-        "formulario_id": data.id,
+        "formulario_id": formulario_id,
         "fecha_cambio": datetime.now(),
         "mensaje": data.motivo
     })
@@ -1295,15 +1297,16 @@ async def get_reclamo_queja(
             
         # Comentarios
         comentarios_result = db.execute(text("""
-            SELECT usuario, fecha, comentario FROM postventa.comentarios
+            SELECT id, fecha, comentario FROM postventa.comentarios
             WHERE formulario_id = :id ORDER BY fecha
         """), {"id": formulario_id}).mappings().fetchall()
+
         comentarios = [{
-            "id": i+1,
-            "usuario": com['usuario'],
+            "id": com['id'],
+            "usuario": f"{result['nombres']} {result['apellidos']}",  # Nombre del formulario
             "fecha": com['fecha'].strftime("%d/%m/%Y %H:%M:%S") if isinstance(com['fecha'], datetime) else com['fecha'],
             "comentario": com['comentario']
-        } for i, com in enumerate(comentarios_result)]
+        } for com in comentarios_result]
         
         # Construcción del response base
         response = {
@@ -1401,20 +1404,7 @@ async def get_reclamo_queja(
             "adjuntos": adjuntos,
             "pdf": pdf,
             #"comentarios": comentarios_data
-            "comentarios": [
-                {
-                    "id": 1,
-                    "usuario": "Juan Perez",
-                    "fecha": "01/01/2024 00:00:00",
-                    "comentario": "Comentario 1"
-                },
-                {
-                    "id": 2,
-                    "usuario": "Juan Perez",
-                    "fecha": "01/01/2024 00:00:00",
-                    "comentario": "Comentario 2"
-                }
-            ]
+            "comentarios": comentarios
         }
 
         # Intentar obtener los datos de la API externa usando httpx (asíncrono)

@@ -179,6 +179,16 @@ CREATE TABLE postventa.formularios (
     CONSTRAINT fk_formularios_tipo_operacion FOREIGN KEY (tipo_operacion_id) REFERENCES postventa.tipo_operaciones(id),
     CONSTRAINT fk_formularios_estado FOREIGN KEY (estado_id) REFERENCES postventa.estados(id_estado)
 );
+
+ALTER TABLE postventa.formularios
+ADD COLUMN origen_id INT;
+
+ALTER TABLE postventa.formularios
+ADD CONSTRAINT fk_formularios_origen
+FOREIGN KEY (origen_id)
+REFERENCES postventa.origenes(id);
+
+
 -- Tabla: ARCHIVOS
 CREATE TABLE postventa.archivos (
     id_archivo BIGSERIAL PRIMARY KEY,
@@ -220,11 +230,29 @@ CREATE TABLE postventa.notificaciones (
 CREATE TABLE postventa.comentarios (
     id SERIAL PRIMARY KEY,
     formulario_id INT NOT NULL,
-    usuario VARCHAR(100) NOT NULL,
     fecha TIMESTAMP NOT NULL,
     comentario TEXT NOT NULL,
     CONSTRAINT fk_comentarios_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE
 );
+
+ALTER TABLE postventa.formularios
+ADD COLUMN codigo VARCHAR(10) GENERATED ALWAYS AS (
+    CASE 
+        WHEN reclamo = 1 OR queja_producto = 1 THEN 'R' || id::text
+        WHEN queja_servicio = 1 THEN 'Q' || id::text
+        ELSE NULL
+    END
+) STORED;
+
+CREATE TABLE postventa.guia (
+    id SERIAL PRIMARY KEY,
+    formularios_id INT REFERENCES postventa.formularios(id),
+    fecha_llegada DATE,
+    creado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    url_archivo TEXT,
+    tipo_archivo VARCHAR(10)
+);
+
 
 CREATE TABLE postventa.tipo_correlativos (
     id BIGSERIAL PRIMARY KEY,
@@ -257,6 +285,20 @@ CREATE TABLE postventa.motivos_servicio (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL
 );
+
+CREATE TABLE postventa.origenes (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL
+);
+
+INSERT INTO postventa.origenes (nombre) VALUES
+('Error de cliente'),
+('Error de vendedor'),
+('Error de almacén'),
+('Error de despacho y distribución'),
+('Error de sistema'),
+('Inconvenientes con la agencia'),
+('Tiempo de almacenamiento');
 
 -- Insertar en tipo_correlativos
 INSERT INTO postventa.tipo_correlativos (nombre) VALUES
