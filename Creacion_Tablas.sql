@@ -235,6 +235,12 @@ CREATE TABLE postventa.comentarios (
     CONSTRAINT fk_comentarios_formulario FOREIGN KEY (formulario_id) REFERENCES postventa.formularios(id) ON DELETE CASCADE
 );
 
+ALTER TABLE postventa.comentarios 
+ADD COLUMN usuarios_id INT NOT NULL,
+ADD CONSTRAINT fk_comentarios_usuario 
+FOREIGN KEY (usuarios_id) 
+REFERENCES postventa.usuarios(id) ON DELETE CASCADE;
+
 ALTER TABLE postventa.formularios
 ADD COLUMN codigo VARCHAR(10) GENERATED ALWAYS AS (
     CASE 

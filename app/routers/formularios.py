@@ -1322,19 +1322,33 @@ async def get_reclamo_queja(
 
         # Comentarios
         comentarios_result = db.execute(text("""
-            SELECT id, fecha, comentario 
-            FROM postventa.comentarios
-            WHERE formulario_id = :id 
-            ORDER BY fecha
+            SELECT 
+                c.id, 
+                c.fecha, 
+                c.comentario,
+                c.usuarios_id
+            FROM postventa.comentarios c
+            WHERE c.formulario_id = :id
+            ORDER BY c.fecha
         """), {"id": formulario_id}).mappings().fetchall()
 
-        comentarios = [{
-            "id": com['id'],
-            "rq_id": codigo_formulario,
-            "comentario": com['comentario'],
-            "creado_por": f"{result['nombres']} {result['apellidos']}",  # Nombre del formulario
-            "creado_el": com['fecha'].strftime("%d/%m/%Y %I:%M %p") if isinstance(com['fecha'], datetime) else com['fecha']
-        } for com in comentarios_result]
+        comentarios = []
+        for com in comentarios_result:
+            # Buscar el nombre completo del usuario que creó el comentario
+            usuario_query = text("""
+                SELECT nombre_completo 
+                FROM postventa.usuarios 
+                WHERE id = :usuarios_id
+            """)
+            usuario_result = db.execute(usuario_query, {"usuarios_id": com['usuarios_id']}).mappings().fetchone()
+            
+            comentarios.append({
+                "id": com['id'],
+                "rq_id": codigo_formulario,
+                "comentario": com['comentario'],
+                "creado_por": usuario_result['nombre_completo'] if usuario_result else "Usuario Desconocido",
+                "creado_el": com['fecha'].strftime("%d/%m/%Y %I:%M %p") if isinstance(com['fecha'], datetime) else com['fecha']
+            })
 
         query_guiado = text("""
         SELECT g.fecha_llegada, g.url_archivo, g.creado_el, f.nombres, f.apellidos

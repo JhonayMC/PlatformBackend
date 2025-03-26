@@ -168,27 +168,25 @@ def registrar_comentario(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
-
     # 🔐 Validar token y obtener usuario
     query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_token = db.execute(query_token, {"token": token}).fetchone()
     if not result_token:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido", "data": []})
     usuarios_id = result_token[0]
-
-    query_usuario = text("SELECT tipo_usuarios_id FROM postventa.usuarios WHERE id = :usuarios_id")
+    
+    query_usuario = text("SELECT tipo_usuarios_id, nombre_completo FROM postventa.usuarios WHERE id = :usuarios_id")
     result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
     if not result_usuario:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado", "data": []})
-
+    
     # Buscar el formulario por el código
     query_formulario = text("SELECT id, nombres, apellidos FROM postventa.formularios WHERE codigo = :codigo")
     formulario = db.execute(query_formulario, {"codigo": codigo}).fetchone()
     if not formulario:
         return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Formulario no encontrado", "data": []})
-
     formulario_id, nombres, apellidos = formulario
-
+    
     # Validar que el comentario no esté vacío
     if not body.comentario or not body.comentario.strip():
         return JSONResponse(
@@ -201,39 +199,46 @@ def registrar_comentario(
                 "mensaje": "No es posible procesar los datos enviados."
             }
         )
-
+    
     # Registrar el comentario
     insertar = text("""
-        INSERT INTO postventa.comentarios (formulario_id, fecha, comentario)
-        VALUES (:formulario_id, :fecha, :comentario)
+        INSERT INTO postventa.comentarios (formulario_id, fecha, comentario, usuarios_id)
+        VALUES (:formulario_id, :fecha, :comentario, :usuarios_id)
     """)
     db.execute(insertar, {
         "formulario_id": formulario_id,
         "fecha": datetime.now(),
-        "comentario": body.comentario
+        "comentario": body.comentario,
+        "usuarios_id": usuarios_id
     })
     db.commit()
-
+    
     # Obtener todos los comentarios de ese formulario
     query_comentarios = text("""
-        SELECT c.id, f.codigo AS rq_id, c.comentario, f.nombres, f.apellidos, c.fecha
+        SELECT 
+            c.id, 
+            f.codigo AS rq_id, 
+            c.comentario, 
+            u.nombre_completo AS creado_por, 
+            c.fecha
         FROM postventa.comentarios c
         INNER JOIN postventa.formularios f ON f.id = c.formulario_id
+        INNER JOIN postventa.usuarios u ON u.id = c.usuarios_id
         WHERE c.formulario_id = :formulario_id
         ORDER BY c.fecha ASC
     """)
     comentarios = db.execute(query_comentarios, {"formulario_id": formulario_id}).fetchall()
-
+    
     data = []
     for c in comentarios:
         data.append({
             "id": c.id,
             "rq_id": c.rq_id,
             "comentario": c.comentario,
-            "creado_por": f"{c.nombres} {c.apellidos}",
+            "creado_por": c.creado_por,
             "creado_el": c.fecha.strftime("%d/%m/%Y %I:%M %p")
         })
-
+    
     return JSONResponse(status_code=200, content={
         "estado": 200,
         "mensaje": "Se ha guardado correctamente",
