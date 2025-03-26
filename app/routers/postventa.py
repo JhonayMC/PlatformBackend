@@ -247,29 +247,54 @@ def registrar_cierre(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
+    # Validación manual de campos obligatorios
+    errores = {}
+    
+    # Validación de origen
+    try:
+        if body.origen is None or body.origen == "" or str(body.origen).strip() == "":
+            errores["origen"] = ["Campo requerido"]
+    except ValueError:
+        errores["origen"] = ["Campo requerido"]
+    
+    # Validación de detalle
+    if body.detalle is None or body.detalle.strip() == "":
+        errores["detalle"] = ["Campo requerido"]
+    
+    # Si hay errores, devolver la respuesta de error
+    if errores:
+        return JSONResponse(
+            status_code=422, 
+            content={
+                "errores": errores,
+                "estado": 422,
+                "mensaje": "No es posible procesar los datos enviados."
+            }
+        )
+    
     token = credentials.credentials
 
-    # 🔐 Validar token y obtener usuario
+    #Validar token y obtener usuario
     query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_token = db.execute(query_token, {"token": token}).fetchone()
     if not result_token:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Token inválido", "data": []})
     usuarios_id = result_token[0]
 
-    # 🔎 Verificar tipo de usuario
+    #  Verificar tipo de usuario
     query_usuario = text("SELECT tipo_usuarios_id FROM postventa.usuarios WHERE id = :usuarios_id")
     result_usuario = db.execute(query_usuario, {"usuarios_id": usuarios_id}).fetchone()
     if not result_usuario:
         return JSONResponse(status_code=401, content={"estado": 401, "mensaje": "Usuario no encontrado", "data": []})
 
-    # 🔎 Buscar el formulario por código
+    #  Buscar el formulario por código
     query_form = text("SELECT id FROM postventa.formularios WHERE codigo = :codigo")
     result_form = db.execute(query_form, {"codigo": codigo}).fetchone()
     if not result_form:
         return JSONResponse(status_code=404, content={"estado": 404, "mensaje": "Formulario no encontrado", "data": []})
     formulario_id = result_form[0]
 
-    # ✅ Actualizar estado del formulario a 10 y guardar el origen
+    #  Actualizar estado del formulario a 10 y guardar el origen
     update_form = text("""
         UPDATE postventa.formularios 
         SET estado_id = 10, origen_id = :origen
@@ -277,7 +302,7 @@ def registrar_cierre(
     """)
     db.execute(update_form, {"origen": body.origen, "formulario_id": formulario_id})
 
-    # ✅ Insertar trazabilidad
+    #  Insertar trazabilidad
     insert_trazabilidad = text("""
         INSERT INTO postventa.trazabilidad (formulario_id, estado_id, mensaje)
         VALUES (:formulario_id, 10, :mensaje)

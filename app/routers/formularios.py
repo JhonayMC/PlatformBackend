@@ -145,7 +145,7 @@ def consultar_estado_reclamo_queja(
 
             # Obtener la trazabilidad del formulario
             query_trazabilidad = text("""
-                SELECT t.estado_id, e.nombre, t.fecha_cambio
+                SELECT t.estado_id, e.nombre, t.fecha_cambio, t.mensaje
                 FROM postventa.trazabilidad t
                 JOIN postventa.estados e ON t.estado_id = e.id_estado
                 WHERE t.formulario_id = :id_formulario
@@ -153,20 +153,40 @@ def consultar_estado_reclamo_queja(
             """)
             result_trazabilidad = db.execute(query_trazabilidad, {"id_formulario": id_formulario}).fetchall()
 
+            # Preparamos el nombre de origen solo si lo llegamos a necesitar
+            origen_nombre = None
+            if reclamo not in (1, 2):
+                query_origen = text("""
+                SELECT o.nombre
+                FROM postventa.formularios f
+                JOIN postventa.origenes o ON f.origen_id = o.id
+                WHERE f.id = :id_formulario
+                """)
+                result_origen = db.execute(query_origen, {"id_formulario": id_formulario}).fetchone()
+                origen_nombre = result_origen[0] if result_origen else None
+
             # Construir la trazabilidad con el estado y la fecha correcta
-            trazabilidad = [
-                {
+            trazabilidad = []
+            for estado_id, estado_nombre, fecha_cambio, mensaje in result_trazabilidad:
+                # Aquí defines el título según el estado_id o mensaje
+                if estado_id == 2:
+                    titulo = "Reclamo generado de manera exitosa"
+                elif estado_id == 1:
+                    titulo = "Queja registrada de manera exitosa"
+                else:
+                    # Si origen_nombre es None, usa el mensaje de la trazabilidad
+                    titulo = origen_nombre if origen_nombre is not None else mensaje
+
+                trazabilidad.append({
                     "estado": estado_nombre,
                     "fecha": fecha_cambio.strftime("%d/%m/%Y %H:%M"),
-                    "titulo": "Reclamo generado de manera exitosa" if reclamo == 1 else "Queja registrada de manera exitosa",
+                    "titulo": titulo,
                     "archivo": {
                         "enlace": enlace_pdf,
                         "nombre": f"{prefijo}_{id_formulario:05d}",
                         "extensión": ".pdf"
                     }
-                }
-                for estado_id, estado_nombre, fecha_cambio in result_trazabilidad
-            ]
+                })
 
             data_completa.append({
                 "id": f"{prefijo}{id_formulario:05d}",
@@ -1174,7 +1194,7 @@ async def anular_reclamo_queja(
 
     formulario_id = formulario.id
 
-    # 📝 Actualizar el estado del formulario a 'ANULADO' (estado_id = 4)
+    # Actualizar el estado del formulario a 'ANULADO' (estado_id = 4)
     update_query = text("""
         UPDATE postventa.formularios
         SET estado_id = 4
@@ -1295,18 +1315,46 @@ async def get_reclamo_queja(
                 "extension": "pdf"
             }
             
+        # Obtener el código del formulario para incluirlo en cada comentario
+        query_codigo = text("SELECT codigo FROM postventa.formularios WHERE id = :id")
+        result_codigo = db.execute(query_codigo, {"id": formulario_id}).fetchone()
+        codigo_formulario = result_codigo[0] if result_codigo else ""
+
         # Comentarios
         comentarios_result = db.execute(text("""
-            SELECT id, fecha, comentario FROM postventa.comentarios
-            WHERE formulario_id = :id ORDER BY fecha
+            SELECT id, fecha, comentario 
+            FROM postventa.comentarios
+            WHERE formulario_id = :id 
+            ORDER BY fecha
         """), {"id": formulario_id}).mappings().fetchall()
 
         comentarios = [{
             "id": com['id'],
-            "usuario": f"{result['nombres']} {result['apellidos']}",  # Nombre del formulario
-            "fecha": com['fecha'].strftime("%d/%m/%Y %H:%M:%S") if isinstance(com['fecha'], datetime) else com['fecha'],
-            "comentario": com['comentario']
+            "rq_id": codigo_formulario,
+            "comentario": com['comentario'],
+            "creado_por": f"{result['nombres']} {result['apellidos']}",  # Nombre del formulario
+            "creado_el": com['fecha'].strftime("%d/%m/%Y %I:%M %p") if isinstance(com['fecha'], datetime) else com['fecha']
         } for com in comentarios_result]
+
+        query_guiado = text("""
+        SELECT g.fecha_llegada, g.url_archivo, g.creado_el, f.nombres, f.apellidos
+        FROM postventa.guia g
+        JOIN postventa.formularios f ON g.formularios_id = f.id  -- Se une con formularios
+        WHERE g.formularios_id = :id
+        ORDER BY g.creado_el DESC
+        LIMIT 1
+    """)
+
+        result_guiado = db.execute(query_guiado, {"id": formulario_id}).fetchone()
+
+        guiado = {
+            "rq_id": codigo_formulario,
+            "fecha_llegada": result_guiado[0].strftime("%Y-%m-%d") if result_guiado else None,
+            "archivo": result_guiado[1] if result_guiado else None,
+            "creado_el": result_guiado[2].strftime("%Y-%m-%d %H:%M:%S") if result_guiado else None,
+            "creado_por": f"{result_guiado[3]} {result_guiado[4]}" if result_guiado else None
+        } if result_guiado else {}
+
         
         # Construcción del response base
         response = {
@@ -1343,16 +1391,6 @@ async def get_reclamo_queja(
             "comentarios": comentarios,
             "productos": []  # Por defecto, lista vacía
         }
-        
-        #comentarios_data = []
-        #if result['comentarios']:  # Asegúrate de que 'result' tenga la key 'comentarios'
-         #   for idx, c in enumerate(result['comentarios'], start=1):
-          #      comentarios_data.append({
-           #         "id": idx,
-            #        "usuario": f"{c['nombres']} {c['apellidos']}",
-             #       "fecha": c['fecha'].strftime("%d/%m/%Y %H:%M:%S") if isinstance(c['fecha'], datetime) else c['fecha'],
-              #      "comentario": c['comentario']
-               # })
 
         # Construcción del response base con el orden correcto
         response = {
@@ -1404,7 +1442,8 @@ async def get_reclamo_queja(
             "adjuntos": adjuntos,
             "pdf": pdf,
             #"comentarios": comentarios_data
-            "comentarios": comentarios
+            "comentarios": comentarios,
+            "guiado": guiado
         }
 
         # Intentar obtener los datos de la API externa usando httpx (asíncrono)
