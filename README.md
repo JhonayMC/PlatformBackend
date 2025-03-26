@@ -56,3 +56,5 @@ PLATAFORMA_POST_VENTA_BACKEND/
 │   └── logger.py # Configuración centralizada del logging
 ├── .env
 └── requirements.txt
+
+....
