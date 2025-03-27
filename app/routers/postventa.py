@@ -168,7 +168,7 @@ def registrar_comentario(
     db: Session = Depends(get_db)
 ):
     token = credentials.credentials
-    # 🔐 Validar token y obtener usuario
+    #  Validar token y obtener usuario
     query_token = text("SELECT usuarios_id FROM postventa.usuarios_tokens WHERE token = :token")
     result_token = db.execute(query_token, {"token": token}).fetchone()
     if not result_token:

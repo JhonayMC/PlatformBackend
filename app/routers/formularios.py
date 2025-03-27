@@ -1350,6 +1350,33 @@ async def get_reclamo_queja(
                 "creado_el": com['fecha'].strftime("%d/%m/%Y %I:%M %p") if isinstance(com['fecha'], datetime) else com['fecha']
             })
 
+        # Obtener la evaluación asociada
+        query_evaluacion = text("""
+            SELECT id, laudo, creado_el, creado_por, modificado_el, modificado_por
+            FROM postventa.evaluaciones
+            WHERE formularios_id = :id
+            ORDER BY creado_el DESC
+            LIMIT 1
+        """)
+        evaluacion_result = db.execute(query_evaluacion, {"id": formulario_id}).mappings().fetchone()
+
+        evaluaciones = {}
+        if evaluacion_result:
+            evaluaciones = {
+                "laudo_codigo": f"M&M2025-{str(evaluacion_result['id']).zfill(4)}",
+                "laudo_fecha": evaluacion_result['creado_el'].strftime("%d/%m/%Y") if isinstance(evaluacion_result['creado_el'], datetime) else evaluacion_result['creado_el'],
+                "producto_recibido": [],
+                "producto_evaluacion": [],
+                "causa": "",
+                "resultado_id": None,
+                "conclusion": "",
+                "recomendacion": "",
+                "creado_el": evaluacion_result['creado_el'].strftime("%d/%m/%Y %I:%M %p") if isinstance(evaluacion_result['creado_el'], datetime) else evaluacion_result['creado_el'],
+                "creado_por": evaluacion_result['creado_por'],
+                "modificado_el": evaluacion_result['modificado_el'].strftime("%d/%m/%Y %I:%M %p") if isinstance(evaluacion_result['modificado_el'], datetime) else evaluacion_result['modificado_el'],
+                "modificado_por": evaluacion_result['modificado_por']
+            }
+
         query_guiado = text("""
         SELECT g.fecha_llegada, g.url_archivo, g.creado_el, f.nombres, f.apellidos
         FROM postventa.guia g
@@ -1457,7 +1484,8 @@ async def get_reclamo_queja(
             "pdf": pdf,
             #"comentarios": comentarios_data
             "comentarios": comentarios,
-            "guiado": guiado
+            "guiado": guiado,
+            "evaluacion": evaluaciones
         }
 
         # Intentar obtener los datos de la API externa usando httpx (asíncrono)

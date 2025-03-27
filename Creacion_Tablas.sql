@@ -259,6 +259,28 @@ CREATE TABLE postventa.guia (
     tipo_archivo VARCHAR(10)
 );
 
+CREATE TABLE postventa.conformidad (
+    id SERIAL PRIMARY KEY,
+    formulario_id INT NOT NULL REFERENCES postventa.formularios(id) ON DELETE CASCADE,
+    usuarios_id INT NOT NULL REFERENCES postventa.usuarios(id) ON DELETE CASCADE,
+    creado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE postventa.evaluaciones (
+    id SERIAL PRIMARY KEY,
+    formularios_id INT NOT NULL REFERENCES postventa.formularios(id),
+    laudo VARCHAR(20) UNIQUE,
+    causa TEXT DEFAULT '',
+    resultado_id INT REFERENCES postventa.resultados(id),
+    conclusion TEXT DEFAULT '',
+    recomendacion TEXT DEFAULT '',
+    creado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    creado_por VARCHAR(255) NOT NULL,
+    modificado_el TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    modificado_por VARCHAR(255) NOT NULL
+);
+
+
 
 CREATE TABLE postventa.tipo_correlativos (
     id BIGSERIAL PRIMARY KEY,
@@ -362,4 +384,16 @@ INSERT INTO postventa.estados (nombre) VALUES
 ('Procede'),
 ('Solucionado');
 
+-- Crear la tabla postventa_evaluacresultados
+CREATE TABLE postventa.resultados (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+-- Insertar los 4 registros
+INSERT INTO postventa.resultados (nombre) VALUES 
+('Falla de fábrica'),
+('Producto manipulado'),
+('Instalación inadecuada'),
+('Tiempo de uso del repuesto');
 

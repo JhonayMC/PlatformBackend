@@ -96,7 +96,7 @@ def obtener_tipo_operaciones(db: Session = Depends(get_db), token=Depends(get_to
 @router.get("/origenes")
 def listar_origenes(
     db: Session = Depends(get_db),
-    token=Depends(get_token)  # ✅ Validación del token
+    token=Depends(get_token) 
 ):
     # Si el token es inválido, el get_token devuelve un JSONResponse directo
     if isinstance(token, JSONResponse):
@@ -108,6 +108,23 @@ def listar_origenes(
 
     # Devolver la lista simple como /estados
     return [{"id": row[0], "nombre": row[1]} for row in result]
+
+@router.get("/evaluacion-proceso-resultados")
+def listar_resultados(
+    db: Session = Depends(get_db),
+    token=Depends(get_token)
+):
+    # Si el token es inválido, el get_token devuelve un JSONResponse directo
+    if isinstance(token, JSONResponse):
+        return token
+
+    # Obtener los resultados
+    query = text("SELECT id, nombre FROM postventa.resultados")
+    result = db.execute(query).fetchall()
+
+    # Devolver la lista simple como /estados
+    return [{"id": row[0], "nombre": row[1]} for row in result]
+
 
 @router.get("/buscar-dni/{dni}")
 def buscar_dni(dni: str, token=Depends(get_token)):
